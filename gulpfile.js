@@ -16,6 +16,9 @@ gulp.task('jshint:src', function() {
 });
 
 
+gulp.task('test');
+
+
 gulp.task('clean:dist', function () {
 
   return del('dist/*');

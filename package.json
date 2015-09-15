@@ -1,0 +1,47 @@
+{
+  "name": "webgl-pathtracer",
+  "version": "0.0.0",
+  "description": "Path tracing on the GPU using WebGL",
+  "main": "dist/pathtracer.js",
+  "directories": {
+    "example": "examples"
+  },
+  "dependencies": {
+    "del": "^2.0.2",
+    "gulp": "^3.9.0",
+    "gulp-indent": "^1.0.1",
+    "gulp-concat-util": "^0.5.2",
+    "gulp-wrap": "^0.11.0",
+    "gulp-jshint": "^1.11.2"
+  },
+  "devDependencies": {
+    "del": "^2.0.2",
+    "gulp": "^3.9.0",
+    "gulp-concat-util": "^0.5.2",
+    "gulp-indent": "^1.0.1",
+    "gulp-jshint": "^1.11.2",
+    "gulp-wrap": "^0.11.0"
+  },
+  "scripts": {
+    "test": "gulp test"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/rharel/webgl-pathtracer.git"
+  },
+  "keywords": [
+    "path",
+    "tracer",
+    "tracing",
+    "gpu",
+    "graphics",
+    "webgl",
+    "ray"
+  ],
+  "author": "Raoul Harel",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/rharel/webgl-pathtracer/issues"
+  },
+  "homepage": "https://github.com/rharel/webgl-pathtracer#readme"
+}
