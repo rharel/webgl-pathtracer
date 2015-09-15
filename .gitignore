@@ -1,2 +1,5 @@
 # Editor
 .idea/
+
+# Package managers
+bower_components/

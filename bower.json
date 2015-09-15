@@ -1,0 +1,27 @@
+{
+  "name": "webgl-pathtracer",
+  "version": "0.0.0",
+  "authors": [
+    "Raoul Harel <raoulhaa@gmail.com>"
+  ],
+  "description": "Path tracing on the GPU using WebGL.",
+  "keywords": [
+    "path",
+    "tracer",
+    "tracing",
+    "gpu",
+    "graphics",
+    "webgl",
+    "ray"
+  ],
+  "license": "MIT",
+  "homepage": "https://github.com/rharel/webgl-pathtracer",
+  "ignore": [
+    "**/.*",
+    "bower_components",
+    "test"
+  ],
+  "dependencies": {
+    "three.js": "threejs#*"
+  }
+}
