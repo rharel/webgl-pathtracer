@@ -4,3 +4,6 @@
 # Package managers
 bower_components/
 node_modules/
+
+# Temp files
+src/shaders/*.js
