@@ -14,7 +14,15 @@ var target = 'glpt.js';
 
 gulp.task('jshint:src', function() {
 
-  return gulp.src('src/*.js')
+  return gulp.src('src/**/*.js')
+
+    .pipe(jshint())
+    .pipe(jshint.reporter('default'))
+});
+
+gulp.task('jshint:dist', ['jshint:src', 'build'], function() {
+
+  return gulp.src('dist/' + target)
 
     .pipe(jshint())
     .pipe(jshint.reporter('default'))
@@ -44,10 +52,10 @@ gulp.task('transpile:shaders', function() {
 
       code = code.toString();
 
-      return 'var ' + shader_type + '_shader = "" +\n  ' +
+      return 'var ' + shader_type.toUpperCase() + '_SHADER_SOURCE = "" +\n  ' +
 
         code.split('\n')
-            .map(function(x) { return '"' + x.trim() + '"'; })
+            .map(function(x) { return '"' + x.replace(/\s+$/, '') + '\\n"'; })
             .join(' +\n  ') +
         ';';
     }))
