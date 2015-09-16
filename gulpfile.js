@@ -3,8 +3,13 @@ var concat = require('gulp-concat-util');
 var indent = require('gulp-indent');
 var wrap = require('gulp-wrap');
 var jshint = require('gulp-jshint');
+var rename = require('gulp-rename');
 
 var del = require('del');
+var map = require('vinyl-map');
+
+
+var target = 'glpt.js';
 
 
 gulp.task('jshint:src', function() {
@@ -25,28 +30,60 @@ gulp.task('clean:dist', function () {
 });
 
 
-gulp.task('copy:shaders', ['clean:dist'], function() {
+gulp.task('compile:shaders', function() {
 
-  return gulp.src('src/shaders/*')
-    .pipe(gulp.dest('dist/shaders/'));
+  return gulp.src('src/shaders/*.glsl')
+
+    .pipe(map(function(code, filename) {
+
+      var shader_type = filename.slice(
+
+        filename.lastIndexOf('\\') + 1,
+        filename.indexOf('.')
+      );
+
+      code = code.toString();
+
+      return 'var ' + shader_type + '_shader = "" +\n  ' +
+
+        code.split('\n')
+            .map(function(x) { return '"' + x.trim() + '"'; })
+            .join(' +\n  ') +
+        ';';
+    }))
+
+    .pipe(rename(function (path) { path.extname = ".js"; }))
+    .pipe(gulp.dest('src/shaders/'));
 });
 
 
-gulp.task('concat:dist', ['clean:dist'], function() {
+gulp.task('concat:dist', ['clean:dist', 'compile:shaders'], function() {
 
   return gulp.src([
 
-    'src/js/PrimitiveType.js',
-    'src/js/PathTracer.js',
+    'src/shaders/vertex.js',
+    'src/shaders/fragment.js',
+
+    'src/js/Primitive.js',
+    'src/js/Material.js',
+    'src/js/Light.js',
+    'src/js/Stratifier.js',
+    'src/js/Renderer.js',
     'src/js/index.js'
   ])
 
-    .pipe(concat('pathtracer.js', {
+    .pipe(concat(target, {
 
       process: function (src) {
 
         var i = src.indexOf('*/');
-        return src.slice(i + 2).trim() + '\n';
+
+        if (i !== -1) {
+
+          return src.slice(i + 2).trim() + '\n';
+        }
+
+        else { return src + '\n'; }
       }
     }))
 
@@ -56,7 +93,7 @@ gulp.task('concat:dist', ['clean:dist'], function() {
 
 gulp.task('wrap:dist', ['concat:dist'], function() {
 
-  return gulp.src('dist/pathtracer.js')
+  return gulp.src('dist/' + target)
 
     .pipe(indent({
 
@@ -82,7 +119,7 @@ gulp.task('wrap:dist', ['concat:dist'], function() {
 });
 
 
-gulp.task('build', ['wrap:dist', 'copy:shaders']);
+gulp.task('build', ['wrap:dist']);
 
 
 gulp.task('default', ['build']);
