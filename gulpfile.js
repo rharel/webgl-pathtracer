@@ -30,7 +30,7 @@ gulp.task('clean:dist', function () {
 });
 
 
-gulp.task('compile:shaders', function() {
+gulp.task('transpile:shaders', function() {
 
   return gulp.src('src/shaders/*.glsl')
 
@@ -57,7 +57,7 @@ gulp.task('compile:shaders', function() {
 });
 
 
-gulp.task('concat:dist', ['clean:dist', 'compile:shaders'], function() {
+gulp.task('concat:dist', ['clean:dist', 'transpile:shaders'], function() {
 
   return gulp.src([
 
