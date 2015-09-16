@@ -20,7 +20,9 @@
     "gulp-concat-util": "^0.5.2",
     "gulp-indent": "^1.0.1",
     "gulp-jshint": "^1.11.2",
-    "gulp-wrap": "^0.11.0"
+    "gulp-rename": "^1.2.2",
+    "gulp-wrap": "^0.11.0",
+    "vinyl-map": "^1.0.1"
   },
   "scripts": {
     "test": "gulp test"
