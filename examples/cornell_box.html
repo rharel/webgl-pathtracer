@@ -150,8 +150,10 @@
             });
 
             renderer.scene = scene;
-            renderer.camera.position.set(0, 0, 3);
+            renderer.camera.position.set(0, 0, 12);
             renderer.camera.rotation.set(0, 0, 0);
+            renderer.camera.fov = 75;
+
             renderer.update();
 
             renderer.render();
