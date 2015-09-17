@@ -52,12 +52,12 @@ gulp.task('transpile:shaders', function() {
 
       code = code.toString();
 
-      return 'var ' + shader_type.toUpperCase() + '_SHADER_SOURCE = "" +\n  ' +
+      return 'var ' + shader_type.toUpperCase() + '_SHADER_SOURCE = [\n  ' +
 
         code.split('\n')
-            .map(function(x) { return '"' + x.replace(/\s+$/, '') + '\\n"'; })
-            .join(' +\n  ') +
-        ';';
+            .map(function(x) { return '"' + x.replace(/\s+$/, '') + '"'; })
+            .join(',\n  ') +
+        '].join(\'\\n\');';
     }))
 
     .pipe(rename(function (path) { path.extname = ".js"; }))
@@ -84,9 +84,10 @@ gulp.task('concat:dist', ['clean:dist', 'transpile:shaders'], function() {
 
       process: function (src) {
 
+        var has_header = src.slice(0, 3) === '/**';
         var i = src.indexOf('*/');
 
-        if (i !== -1) {
+        if (has_header && i !== -1) {
 
           return src.slice(i + 2).trim() + '\n';
         }
@@ -130,4 +131,4 @@ gulp.task('wrap:dist', ['concat:dist'], function() {
 gulp.task('build', ['wrap:dist']);
 
 
-gulp.task('default', ['build']);
+gulp.task('default', ['build', 'jshint:dist']);
