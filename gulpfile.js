@@ -72,6 +72,7 @@ gulp.task('concat:dist', ['clean:dist', 'transpile:shaders'], function() {
     'src/shaders/vertex.js',
     'src/shaders/fragment.js',
 
+    'src/js/TextureUtils.js',
     'src/js/Primitive.js',
     'src/js/Material.js',
     'src/js/Light.js',
