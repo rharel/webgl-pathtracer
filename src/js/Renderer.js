@@ -114,7 +114,7 @@ Renderer.prototype = {
         this._material_index_map[i] = {
 
           type: Material.Lambert,
-          index: this._materials.lambert.length
+          index: this._materials.lambert.color.length - 1
         };
       }
     }
@@ -169,7 +169,7 @@ Renderer.prototype = {
             shape.normal.x,
             shape.normal.y,
             shape.normal.z
-          )
+          ).normalize()
         );
       }
 
@@ -215,10 +215,10 @@ Renderer.prototype = {
     this._fragment_shader =
 
       FRAGMENT_SHADER_SOURCE
-        .replace('__N_MATERIAL_LAMBERT', this._materials.lambert.color.length.toString())
-        .replace('__N_GEOMETRY_SPHERE', this._geometry.sphere.position.length.toString())
-        .replace('__N_GEOMETRY_PLANE', this._geometry.plane.position.length.toString())
-        .replace('__N_LIGHTING_SPHERE', this._lighting.sphere.position.length.toString());
+        .replace(/_N_MATERIAL_LAMBERT/g, this._materials.lambert.color.length.toString())
+        .replace(/_N_GEOMETRY_SPHERE/g, this._geometry.sphere.position.length.toString())
+        .replace(/_N_GEOMETRY_PLANE/g, this._geometry.plane.position.length.toString())
+        .replace(/_N_LIGHTING_SPHERE/g, this._lighting.sphere.position.length.toString());
   },
 
   _setup_shader_material: function() {
@@ -229,18 +229,24 @@ Renderer.prototype = {
 
         // pixel sampling //
 
-        pixel_sampler_type: {type: "i", value: this._pixel_sampler.stratifier},
         pixel_sampler_grid_degree: {type: "i", value: this._pixel_sampler.degree || 1},
 
         // camera //
 
         camera_position: {type: "v3", value: this._camera.position},
         camera_view_matrix: {type: "m4", value: this._camera.matrixWorldInverse},
-        camera_projection_matrix: {type: "m4", value: this._camera.projectionMatrix},
+        camera_world_matrix: {type: "m4", value: this._camera.matrixWorld},
+        camera_aspect: {type: "f", value: this._camera.aspect},
+        camera_fov: {type: "f", value: this._camera.fov},
+        camera_near: {type: "f", value: this._camera.near},
 
         // scene //
 
-        material_lambert_color: {type: "v3v", value: this._materials.lambert.color},
+        material_lambert_color: {
+
+          type: "t",
+          value: TextureUtils.texture_1d(this._materials.lambert.color)
+        },
 
         geometry_sphere_position: {type: "v3v", value: this._geometry.sphere.position},
         geometry_sphere_radius: {type: "fv1", value: this._geometry.sphere.radius},
@@ -271,6 +277,9 @@ Renderer.prototype = {
   update: function() {
 
     this._reset();
+
+    this._camera.updateMatrix();
+    this._camera.updateMatrixWorld();
 
     this._process_materials(this._scene.materials);
     this._process_geometry(this._scene.geometry);
