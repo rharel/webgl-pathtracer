@@ -16,11 +16,14 @@
   },
   "devDependencies": {
     "del": "^2.0.2",
+    "glsl-noise": "0.0.0",
+    "glslify": "^2.3.1",
     "gulp": "^3.9.0",
     "gulp-concat-util": "^0.5.2",
     "gulp-indent": "^1.0.1",
     "gulp-jshint": "^1.11.2",
     "gulp-rename": "^1.2.2",
+    "gulp-shell": "^0.4.3",
     "gulp-wrap": "^0.11.0",
     "vinyl-map": "^1.0.1"
   },
