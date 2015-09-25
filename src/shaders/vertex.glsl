@@ -8,8 +8,7 @@ varying vec2 vs_pixel;
 
 void main (void) {
 
-    vs_pixel = vec2(position.x + 1.0, position.y + 1.0);
-    vs_pixel *= 0.5;
+    vs_pixel = vec2(position.x, position.y);
 
     gl_Position = vec4(position.x, position.y, 0, 1);
 }

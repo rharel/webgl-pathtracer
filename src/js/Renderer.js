@@ -25,6 +25,7 @@ function Renderer(options) {
   this._3_scene = new THREE.Scene();
 
   var vertices = new THREE.Float32Attribute(6 * 3, 3);
+
   vertices.setXYZ(0, -1, -1, 0);
   vertices.setXYZ(1, -1,  1, 0);
   vertices.setXYZ(2,  1,  1, 0);
@@ -46,6 +47,9 @@ function Renderer(options) {
       75, this._canvas.width / this._canvas.height, 0.1, 1000
   );
 }
+
+
+Renderer.N_RANDOM_SEEDS = 100;
 
 
 Renderer.prototype = {
@@ -91,7 +95,8 @@ Renderer.prototype = {
 
         position: [],
         radius: [],
-        color: []
+        color: [],
+        intensity: []
       }
     };
   },
@@ -187,7 +192,7 @@ Renderer.prototype = {
 
       light = lighting_collection[i];
 
-      if (light.type === Primitive.Sphere) {
+      if (light.type === Light.Sphere) {
 
         buffer = this._lighting.sphere;
 
@@ -204,7 +209,12 @@ Renderer.prototype = {
         buffer.radius.push(light.radius);
       }
 
-      buffer.color.push(light.color);
+      buffer.color.push(
+
+        new THREE.Vector3(light.color.r, light.color.g, light.color.b)
+      );
+
+      buffer.intensity.push(light.intensity);
     }
   },
 
@@ -215,53 +225,94 @@ Renderer.prototype = {
     this._fragment_shader =
 
       FRAGMENT_SHADER_SOURCE
-        .replace(/_N_MATERIAL_LAMBERT/g, this._materials.lambert.color.length.toString())
-        .replace(/_N_GEOMETRY_SPHERE/g, this._geometry.sphere.position.length.toString())
-        .replace(/_N_GEOMETRY_PLANE/g, this._geometry.plane.position.length.toString())
-        .replace(/_N_LIGHTING_SPHERE/g, this._lighting.sphere.position.length.toString());
+        .replace(/N_RANDOM_SEEDS_/g, Renderer.N_RANDOM_SEEDS)
+        .replace(/N_MATERIAL_LAMBERT_/g, this._materials.lambert.color.length.toString())
+        .replace(/N_GEOMETRY_SPHERE_/g, this._geometry.sphere.position.length.toString())
+        .replace(/N_GEOMETRY_PLANE_/g, this._geometry.plane.position.length.toString())
+        .replace(/N_LIGHTING_SPHERE_/g, this._lighting.sphere.position.length.toString());
   },
 
   _setup_shader_material: function() {
 
+    var random = [];
+    for (var i = 0; i < Renderer.N_RANDOM_SEEDS; ++i) {
+
+      random.push(Math.random());
+    }
+
+    var uniforms = {
+
+      // globals: //
+
+      random_seeds: {
+
+        type: "t",
+        value: TextureUtils.from_float_array(random)
+      },
+
+      // pixel sampling //
+
+      pixel_sampler_grid_degree: {type: "i", value: this._pixel_sampler.degree || 1},
+
+      // camera //
+
+      camera_position: {type: "v3", value: this._camera.position},
+      camera_world_matrix: {type: "m4", value: this._camera.matrixWorld},
+      camera_projection_matrix_inverse: {
+
+        type: "m4",
+        value: new THREE.Matrix4().getInverse(this._camera.projectionMatrix)
+      },
+      camera_aspect: {type: "f", value: this._camera.aspect},
+      camera_fov: {type: "f", value: this._camera.fov},
+      camera_near: {type: "f", value: this._camera.near},
+
+      // scene //
+
+      material_lambert_color: {
+
+        type: "t",
+        value: TextureUtils.from_vec3_array(this._materials.lambert.color)
+      },
+
+      geometry_sphere_position: {type: "v3v", value: this._geometry.sphere.position},
+      geometry_sphere_radius: {type: "fv1", value: this._geometry.sphere.radius},
+      geometry_sphere_material_type: {type: "iv1", value: this._geometry.sphere.material_type},
+      geometry_sphere_material_index: {type: "iv1", value: this._geometry.sphere.material_index},
+
+      geometry_plane_position: {type: "v3v", value: this._geometry.plane.position},
+      geometry_plane_normal: {type: "v3v", value: this._geometry.plane.normal},
+      geometry_plane_material_type: {type: "iv1", value: this._geometry.plane.material_type},
+      geometry_plane_material_index: {type: "iv1", value: this._geometry.plane.material_index},
+
+      lighting_sphere_position: {
+
+        type: "t",
+        value: TextureUtils.from_vec3_array(this._lighting.sphere.position)
+      },
+
+      lighting_sphere_radius: {
+
+        type: "t",
+        value: TextureUtils.from_float_array(this._lighting.sphere.radius)
+      },
+
+      lighting_sphere_color: {
+
+        type: "t",
+        value: TextureUtils.from_vec3_array(this._lighting.sphere.color)
+      },
+
+      lighting_sphere_intensity: {
+
+        type: "t",
+        value: TextureUtils.from_float_array(this._lighting.sphere.intensity)
+      }
+    };
+
     this._3_material = new THREE.RawShaderMaterial({
 
-      uniforms: {
-
-        // pixel sampling //
-
-        pixel_sampler_grid_degree: {type: "i", value: this._pixel_sampler.degree || 1},
-
-        // camera //
-
-        camera_position: {type: "v3", value: this._camera.position},
-        camera_view_matrix: {type: "m4", value: this._camera.matrixWorldInverse},
-        camera_world_matrix: {type: "m4", value: this._camera.matrixWorld},
-        camera_aspect: {type: "f", value: this._camera.aspect},
-        camera_fov: {type: "f", value: this._camera.fov},
-        camera_near: {type: "f", value: this._camera.near},
-
-        // scene //
-
-        material_lambert_color: {
-
-          type: "t",
-          value: TextureUtils.texture_1d(this._materials.lambert.color)
-        },
-
-        geometry_sphere_position: {type: "v3v", value: this._geometry.sphere.position},
-        geometry_sphere_radius: {type: "fv1", value: this._geometry.sphere.radius},
-        geometry_sphere_material_type: {type: "iv1", value: this._geometry.sphere.material_type},
-        geometry_sphere_material_index: {type: "iv1", value: this._geometry.sphere.material_index},
-
-        geometry_plane_position: {type: "v3v", value: this._geometry.plane.position},
-        geometry_plane_normal: {type: "v3v", value: this._geometry.plane.normal},
-        geometry_plane_material_type: {type: "iv1", value: this._geometry.plane.material_type},
-        geometry_plane_material_index: {type: "iv1", value: this._geometry.plane.material_index},
-
-        lighting_sphere_position: {type: "v3v", value: this._lighting.sphere.position},
-        lighting_sphere_radius: {type: "fv1", value: this._lighting.sphere.radius},
-        lighting_sphere_color: {type: "v3v", value: this._lighting.sphere.color}
-      },
+      uniforms: uniforms,
 
       vertexShader: this._vertex_shader,
       fragmentShader: this._fragment_shader,

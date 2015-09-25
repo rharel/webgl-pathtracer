@@ -7,20 +7,13 @@
 
 var TextureUtils = {};
 
-TextureUtils.texture_1d = function(pixels) {
-
-  var data = [];
-
-  pixels.forEach(function(v) {
-
-    data.push(v.x * 255, v.y * 255, v.z * 255);
-  });
+TextureUtils._from_array = function(array) {
 
   var texture = new THREE.DataTexture(
 
-    new Uint8Array(data),
-    pixels.length, 1,
-    THREE.RGBFormat, THREE.UnsignedByteType,
+    new Float32Array(array),
+    array.length / 3, 1,
+    THREE.RGBFormat, THREE.FloatType,
     THREE.UVMapping,
     THREE.ClampToEdgeWrapping, THREE.ClampToEdgeWrapping,
     THREE.NearestFilter, THREE.NearestFilter
@@ -29,4 +22,22 @@ TextureUtils.texture_1d = function(pixels) {
   texture.needsUpdate = true;
 
   return texture;
+};
+
+
+TextureUtils.from_vec3_array = function(array) {
+
+  var data = array.map(function(v) { return [v.x, v.y, v.z]; });
+  data = [].concat.apply([], data);
+
+  return TextureUtils._from_array(data);
+};
+
+
+TextureUtils.from_float_array = function(array) {
+
+  var data = array.map(function(x) { return [x, x, x]; });
+  data = [].concat.apply([], data);
+
+  return TextureUtils._from_array(data);
 };
