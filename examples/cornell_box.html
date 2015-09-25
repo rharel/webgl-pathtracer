@@ -136,9 +136,10 @@
 
                 {
                     type: GLPT.Light.Sphere,
-                    position: {x: 0, y: 0.95, z: 0},
+                    position: {x: 0, y: 0, z: 0},
                     radius: 0.05,
-                    color: {r: 1, g: 1, b: 1}
+                    color: {r: 1, g: 1, b: 0.5},
+                    intensity: 1
                 }
             ];
 
@@ -150,9 +151,9 @@
             });
 
             renderer.scene = scene;
-            renderer.camera.position.set(0, 0, 12);
+            renderer.camera.position.set(0, 0, 3);
             renderer.camera.rotation.set(0, 0, 0);
-            renderer.camera.fov = 75;
+            renderer.camera.fov = 30;
 
             renderer.update();
 
@@ -166,18 +167,18 @@
             var canvas = document.getElementById('render-reference');
             var renderer = new THREE.WebGLRenderer({canvas: canvas});
 
-            var plane = new THREE.PlaneGeometry(2, 2, 1, 1);
+            var plane = new THREE.PlaneGeometry(2, 2, 10, 10);
 
             var materials = {
 
-                red: new THREE.MeshBasicMaterial({color: 0xff0000, side: THREE.FrontSide}),
-                orange: new THREE.MeshBasicMaterial({color: 0xff7f00, side: THREE.FrontSide}),
-                yellow: new THREE.MeshBasicMaterial({color: 0xffff00, side: THREE.FrontSide}),
-                green: new THREE.MeshBasicMaterial({color: 0x00ff00, side: THREE.FrontSide}),
-                blue: new THREE.MeshBasicMaterial({color: 0x0000ff, side: THREE.FrontSide}),
-                indigo: new THREE.MeshBasicMaterial({color: 0x4b0082, side: THREE.FrontSide}),
-                violet: new THREE.MeshBasicMaterial({color: 0x8b00ff, side: THREE.FrontSide}),
-                white: new THREE.MeshBasicMaterial({color: 0xffffff, side: THREE.FrontSide})
+                red: new THREE.MeshLambertMaterial({color: 0xff0000, side: THREE.FrontSide}),
+                orange: new THREE.MeshLambertMaterial({color: 0xff7f00, side: THREE.FrontSide}),
+                yellow: new THREE.MeshLambertMaterial({color: 0xffff00, side: THREE.FrontSide}),
+                green: new THREE.MeshLambertMaterial({color: 0x00ff00, side: THREE.FrontSide}),
+                blue: new THREE.MeshLambertMaterial({color: 0x0000ff, side: THREE.FrontSide}),
+                indigo: new THREE.MeshLambertMaterial({color: 0x4b0082, side: THREE.FrontSide}),
+                violet: new THREE.MeshLambertMaterial({color: 0x8b00ff, side: THREE.FrontSide}),
+                white: new THREE.MeshLambertMaterial({color: 0xffffff, side: THREE.FrontSide})
             };
 
             var left = new THREE.Mesh(plane, materials.red);
@@ -204,6 +205,11 @@
             bottom.rotation.x = -0.5 * Math.PI;
 
             scene.add(left, right, front, back, top, bottom);
+
+            var light = new THREE.PointLight(0xffffff, 1, 100);
+            light.position.set(0, 0.95, 0);
+
+            scene.add(light);
 
             var camera = new THREE.PerspectiveCamera(75, canvas.width / canvas.height, 0.1, 1000);
             camera.position.set(0, 0, 3);
