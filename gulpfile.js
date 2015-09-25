@@ -4,10 +4,12 @@ var indent = require('gulp-indent');
 var wrap = require('gulp-wrap');
 var jshint = require('gulp-jshint');
 var rename = require('gulp-rename');
+var shell = require('gulp-shell');
 
 var del = require('del');
 var map = require('vinyl-map');
 
+var glslify = require('glslify');
 
 var target = 'glpt.js';
 
@@ -38,9 +40,29 @@ gulp.task('clean:dist', function () {
 });
 
 
-gulp.task('transpile:shaders', function() {
+gulp.task('aggregate:shaders', function() {
 
-  return gulp.src('src/shaders/*.glsl')
+  return gulp.src([
+
+    'src/shaders/vertex.glsl',
+    'src/shaders/fragment.glsl'
+  ], {read: false})
+
+    .pipe(shell([
+      'echo aggregate:shader <%= file.path %>',
+      'glslify <%= file.path %> -o <%= glsl_out(file.path) %>'
+    ], {
+
+      templateData: {
+
+        glsl_out: function(filename) { return filename.replace('.glsl', '.out.glsl'); }
+      }
+    }));
+});
+
+gulp.task('transpile:shaders', ['aggregate:shaders'], function() {
+
+  return gulp.src('src/shaders/*.out.glsl')
 
     .pipe(map(function(code, filename) {
 
@@ -50,7 +72,7 @@ gulp.task('transpile:shaders', function() {
         filename.indexOf('.')
       );
 
-      code = code.toString();
+      code = code.toString().replace('\r', '\n');
 
       return 'var ' + shader_type.toUpperCase() + '_SHADER_SOURCE = [\n  ' +
 
@@ -60,7 +82,12 @@ gulp.task('transpile:shaders', function() {
         '].join(\'\\n\');';
     }))
 
-    .pipe(rename(function (path) { path.extname = ".js"; }))
+    .pipe(rename(function (path) {
+
+      path.basename = path.basename.replace('.out', '');
+      path.extname = '.js';
+    }))
+
     .pipe(gulp.dest('src/shaders/'));
 });
 
