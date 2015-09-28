@@ -1,0 +1,197 @@
+<!DOCTYPE html>
+<!--
+/**
+ * @author Raoul Harel
+ * @license The MIT license (LICENSE.txt)
+ * @copyright 2015 Raoul Harel
+ * @url https://github.com/rharel/webgl-pathtracer
+ */
+-->
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Test rendering of floating point textures [webgl-pathtracer]</title>
+
+    <link rel="stylesheet" href="test.css">
+
+    <script src="https://code.jquery.com/jquery-2.1.4.min.js"></script>
+
+    <script src="../bower_components/three.js/build/three.js"></script>
+
+    <script id="vertex-shader" type="x-shader/x-vertex">
+
+        #version 100
+
+
+        attribute vec3 position;
+
+
+        void main(void) {
+
+            gl_Position = vec4(position.x, position.y, 0, 1);
+        }
+
+    </script>
+    <script id="plain-fragment-shader" type="x-shader/x-fragment">
+
+        #version 100
+
+        precision highp float;
+
+        uniform vec3 color;
+
+
+        void main(void) {
+
+            gl_FragColor = vec4(color, 1);
+        }
+
+    </script>
+    <script id="sum-fragment-shader" type="x-shader/x-fragment">
+
+        #version 100
+
+        precision highp float;
+
+        uniform sampler2D a;
+        uniform sampler2D b;
+
+
+        void main(void) {
+
+            gl_FragColor = texture2D(a, gl_FragCoord.xy) + texture2D(b, gl_FragCoord.xy);
+        }
+
+    </script>
+    <script id="average-fragment-shader" type="x-shader/x-fragment">
+
+        #version 100
+
+        precision highp float;
+        precision highp int;
+
+        uniform sampler2D sum;
+        uniform int divisor;
+
+
+        void main(void) {
+
+            gl_FragColor = texture2D(sum, gl_FragCoord.xy) / float(divisor);
+        }
+
+    </script>
+
+    <script>
+
+        $(document).ready(function() {
+
+            var WIDTH = 128, HEIGHT = 128;
+
+            var output_canvas = $('#output')[0];
+
+            var rt_a = new THREE.WebGLRenderTarget(WIDTH, HEIGHT, {type: THREE.FloatType});
+            var rt_b = new THREE.WebGLRenderTarget(WIDTH, HEIGHT, {type: THREE.FloatType});
+            var rt_sum = new THREE.WebGLRenderTarget(WIDTH, HEIGHT, {type: THREE.FloatType});
+
+            var quad_mesh = null;
+            var scene = null;
+
+            var vertex_shader = $('#vertex-shader').text();
+
+            var material_plain = new THREE.RawShaderMaterial({
+
+                uniforms: { color: {type: 'v3', value: new THREE.Vector3()} },
+
+                vertexShader: vertex_shader,
+                fragmentShader: $('#plain-fragment-shader').text(),
+
+                side: THREE.DoubleSide
+            });
+
+            var material_sum = new THREE.RawShaderMaterial({
+
+                uniforms: {
+
+                    a: {type: 't', value: rt_a},
+                    b: {type: 't', value: rt_b}
+                },
+
+                vertexShader: vertex_shader,
+                fragmentShader: $('#sum-fragment-shader').text(),
+
+                side: THREE.DoubleSide
+            });
+
+            var material_average = new THREE.RawShaderMaterial({
+
+                uniforms: {
+
+                    sum: {type: 't', value: rt_sum},
+                    divisor: {type: 'i', value: 2}
+                },
+
+                vertexShader: vertex_shader,
+                fragmentShader: $('#average-fragment-shader').text(),
+
+                side: THREE.DoubleSide
+            });
+
+            function init() {
+
+                var quad_vertices = new THREE.Float32Attribute(6 * 3, 3);
+
+                quad_vertices.setXYZ(0, -1, -1, 0);
+                quad_vertices.setXYZ(1, -1,  1, 0);
+                quad_vertices.setXYZ(2,  1,  1, 0);
+
+                quad_vertices.setXYZ(3,  1,  1, 0);
+                quad_vertices.setXYZ(4,  1, -1, 0);
+                quad_vertices.setXYZ(5, -1, -1, 0);
+
+                var quad_geometry = new THREE.BufferGeometry();
+                quad_geometry.addAttribute('position', quad_vertices);
+
+                quad_mesh = new THREE.Mesh(quad_geometry, null);
+
+                scene = new THREE.Scene();
+                scene.add(quad_mesh);
+            }
+
+            init();
+
+            var renderer = new THREE.WebGLRenderer({canvas: output_canvas});
+            var dummy_camera = new THREE.OrthographicCamera();
+            
+            quad_mesh.material = material_plain;
+
+            material_plain.uniforms.color.value.set(1, 1, 0);
+            renderer.render(scene, dummy_camera, rt_a);
+
+            material_plain.uniforms.color.value.set(0, 1, 1);
+            renderer.render(scene, dummy_camera, rt_b);
+
+            quad_mesh.material = material_sum;
+
+            renderer.render(scene, dummy_camera, rt_sum);
+
+            quad_mesh.material = material_average;
+
+            renderer.render(scene, dummy_camera);  // expected output: rgb(0.5, 1.0, 0.5)
+        });
+    </script>
+</head>
+<body>
+
+    <h1>Rendering to, summing and averaging floating point textures</h1>
+
+    <div style="display: inline-block;
+                width: 128px; height: 128px;
+                border: 2px solid magenta;
+                background-color: #80ff80;"></div>
+
+    <canvas id="output" width="128" height="128"></canvas>
+
+    <h2>(left) expected vs. actual (right)</h2>
+
+</body>
+</html>
