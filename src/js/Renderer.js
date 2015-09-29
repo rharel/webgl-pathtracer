@@ -46,6 +46,8 @@ function Renderer(options) {
 
       75, this._canvas.width / this._canvas.height, 0.1, 1000
   );
+
+  this._random_seeds = [];
 }
 
 
@@ -234,20 +236,14 @@ Renderer.prototype = {
 
   _setup_shader_material: function() {
 
-    var random = [];
-    for (var i = 0; i < Renderer.N_RANDOM_SEEDS; ++i) {
-
-      random.push(Math.random());
-    }
-
-    var uniforms = {
+    this._uniforms = {
 
       // globals: //
 
       random_seeds: {
 
         type: "t",
-        value: TextureUtils.from_float_array(random)
+        value: TextureUtils.from_float_array(this._random_seeds)
       },
 
       // pixel sampling //
@@ -263,9 +259,6 @@ Renderer.prototype = {
         type: "m4",
         value: new THREE.Matrix4().getInverse(this._camera.projectionMatrix)
       },
-      camera_aspect: {type: "f", value: this._camera.aspect},
-      camera_fov: {type: "f", value: this._camera.fov},
-      camera_near: {type: "f", value: this._camera.near},
 
       // scene //
 
@@ -312,7 +305,7 @@ Renderer.prototype = {
 
     this._3_material = new THREE.RawShaderMaterial({
 
-      uniforms: uniforms,
+      uniforms: this._uniforms,
 
       vertexShader: this._vertex_shader,
       fragmentShader: this._fragment_shader,
@@ -323,6 +316,16 @@ Renderer.prototype = {
     this._3_scene.remove(this._3_mesh);
     this._3_mesh = new THREE.Mesh(this._3_geometry, this._3_material);
     this._3_scene.add(this._3_mesh);
+  },
+
+  _generate_random_seeds: function() {
+
+    for (var i = 0; i < Renderer.N_RANDOM_SEEDS; ++i) {
+
+      this._random_seeds[i] = Math.random();
+    }
+
+    this._uniforms.random_seeds.value = TextureUtils.from_float_array(this._random_seeds);
   },
 
   update: function() {
@@ -340,9 +343,11 @@ Renderer.prototype = {
     this._setup_shader_material();
   },
 
-  render: function() {
+  render: function(target) {
 
-    this._3_renderer.render(this._3_scene, this._camera);
+    this._generate_random_seeds();
+
+    this._3_renderer.render(this._3_scene, this._camera, target);
   },
 
   get scene() { return this._scene; },
@@ -359,5 +364,7 @@ Renderer.prototype = {
   get camera() { return this._camera; },
   set camera(camera) { this._camera = camera; },
 
-  get canvas() { return this._canvas; }
+  get canvas() { return this._canvas; },
+
+  get renderer() { return this._3_renderer; }
 };

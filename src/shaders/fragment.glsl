@@ -10,26 +10,33 @@
 
 precision mediump float;
 
-// constants
+// constants //
+
+// scene-object quantities
 
 const int N_RANDOM_SEEDS = N_RANDOM_SEEDS_;
 const int N_MATERIAL_LAMBERT = N_MATERIAL_LAMBERT_;
 const int N_GEOMETRY_PLANE = N_GEOMETRY_PLANE_;
 const int N_LIGHTING_SPHERE = N_LIGHTING_SPHERE_;
 
+// material types
+
 const int MATERIAL_LAMBERT = 0;
 
-const float INFINITY = 10000.0;
+// mathematical constants
+
+const float M_INFINITY = 10000.0;
 const float M_PI = 3.14159265358;
 const float M_2_PI = 6.28318530718;
+const float M_EPSILON = 0.001;  // small number
+
+// misc
 
 const vec3 UNIT_Y = vec3(0, 1, 0);
 
-const vec3 HORIZON_COLOR = vec3(1, 1, 1);
+const int MAX_DEPTH = 3;  // max #(ray bounces)
 
-const int MAX_DEPTH = 3;
-
-// uniforms
+// uniforms //
 
 // global
 
@@ -44,9 +51,6 @@ uniform int pixel_sampler_grid_degree;
 uniform vec3 camera_position;
 uniform mat4 camera_world_matrix;
 uniform mat4 camera_projection_matrix_inverse;
-uniform float camera_aspect;
-uniform float camera_fov;
-uniform float camera_near;
 
 // scene
 
@@ -62,11 +66,11 @@ uniform sampler2D lighting_sphere_radius;
 uniform sampler2D lighting_sphere_color;
 uniform sampler2D lighting_sphere_intensity;
 
-// inputs from vertex shader
+// inputs from vertex shader //
 
 varying vec2 vs_pixel;
 
-// structs
+// structs //
 
 struct SphereLight {
 
@@ -99,6 +103,8 @@ struct Collision {
 
     Material material;
 };
+
+// methods //
 
 // texture sampling
 
@@ -180,7 +186,10 @@ highp float noise(vec2 co)
 
 highp float random(const int i) {
 
-    return noise(gl_FragCoord.xy * sample_1d(random_seeds, i, N_RANDOM_SEEDS).x);
+    return noise(
+
+        0.5 * (gl_FragCoord.xy + sample_1d(random_seeds, i, N_RANDOM_SEEDS).x)
+    );
 }
 
 int random_range_i(const int a, const int b, const float r) {
@@ -279,7 +288,7 @@ Collision raycast_planes(const Ray ray, const float min_t) {
 
         float t = intersect_plane(ray, position, normal);
 
-        if (t >= 0.0 && t < collision.t) {
+        if (t >= M_EPSILON && t < collision.t) {
 
              collision.exists = true;
 
@@ -298,12 +307,100 @@ Collision raycast_planes(const Ray ray, const float min_t) {
     return collision;
 }
 
+Collision raycast(const Ray ray, const float min_t) {
+
+    return raycast_planes(ray, min_t);
+}
+
 /**
  * Casts a ray through the scene and returns first collision.
  */
 Collision raycast(const Ray ray) {
 
-    return raycast_planes(ray, INFINITY);
+    return raycast(ray, M_INFINITY);
+}
+
+/**
+ * Returns true if there is no obstacle blocking rays from A to B.
+ */
+bool visible(const vec3 a, const vec3 b) {
+
+    vec3 ab = b - a;
+    float d = length(ab);
+    Collision collision = raycast(Ray(a, normalize(ab)), d - M_EPSILON);
+
+    return !collision.exists;
+}
+
+/**
+ * Evaluates a lambertian brdf with given albedo.
+ */
+vec3 brdf_lambert(const vec3 albedo) {
+
+    return albedo / M_PI;
+}
+
+/**
+ * Bounces a ray off a lambertian surface.
+ *
+ * @param rsi   Random seed offset.
+ */
+vec3 bounce_lambert(inout int rsi, out float pdf) {
+
+    float r1 = random(rsi++);
+    float r2 = random(rsi++);
+
+    float a = M_2_PI * r1;
+    float b = sqrt(1.0 - r2 * r2);
+
+    pdf = 1.0 / M_2_PI;  // uniform sampling
+
+    return normalize(vec3(cos(a) * b, sin(a) * b, r2));
+}
+
+/**
+ * Estimate direct illumination radiance.
+ *
+ * @param x         Contact point.
+ * @param nx        Normal at contact point.
+ * @param material  Material at contact point.
+ * @param rsi       Random seed offset.
+ */
+vec3 illuminate(const vec3 x, const vec3 nx, const Material material, inout int rsi) {
+
+    int light_index = random_range_i(
+
+        0, N_LIGHTING_SPHERE, random(rsi++)
+    );
+
+    SphereLight light = get_sphere_light(light_index);
+
+    vec3 y = random_on_sphere(
+
+        light.position, light.radius,
+        random(rsi++), random(rsi++)
+    );
+
+    if (!visible(x, y)) { return vec3(0, 0, 0); }
+
+    vec3 P;  // BRDF
+    float G;  // form factor
+
+    vec3 L = light.color * light.intensity;
+    vec3 ny = normalize(y - light.position);
+
+    if (material.type == MATERIAL_LAMBERT) {
+
+        vec3 albedo = vec3(sample_1d(
+
+            material_lambert_color, material.index, N_MATERIAL_LAMBERT
+        ));
+
+        P = brdf_lambert(albedo);
+        G = form_factor(x, nx, y, ny);
+    }
+
+    return P * L * G;
 }
 
 /**
@@ -314,55 +411,45 @@ Collision raycast(const Ray ray) {
 vec3 trace(Ray ray) {
 
     int rsi = 0;  // random seed index
-    vec3 color = HORIZON_COLOR;
+
+    vec3 color = vec3(0, 0, 0);
+    float weight = 1.0;
+
     Collision collision = raycast(ray);
 
     for (int depth = 0; depth < 1; depth++) {
 
         if (!collision.exists) { break; }
 
-        int ri = 0;
-
         vec3 collision_point = ray.origin + ray.direction * collision.t;
-        int material_type = collision.material.type;
-        int material_index = collision.material.index;
 
-        // direct light
+        // direct lighting //
 
-        int light_index = random_range_i(
+        color += weight * illuminate(collision_point, collision.normal, collision.material, rsi);
 
-            0, N_LIGHTING_SPHERE, random(rsi++)
-        );
+        // bounce ray //
 
-        SphereLight light = get_sphere_light(0);
+        float pdf;
+        vec3 bounce_direction = bounce_lambert(rsi, pdf);  // on unit hemisphere
 
-        vec3 light_surface_point = random_on_sphere(
+        if (all(equal(collision.normal, -UNIT_Y))) { bounce_direction.y *= -1.0; }
+        else {
 
-            light.position, light.radius,
-            random(rsi++), random(rsi++)
-        );
+            if (!all(equal(collision.normal, UNIT_Y))) {
 
-        vec3 light_surface_normal = normalize(light_surface_point - light.position);
+                vec3 axis = normalize(cross(collision.normal, UNIT_Y));
+                float angle = acos(dot(collision.normal, bounce_direction));
 
-        vec3 d = collision_point - light_surface_point;
-
-        if (material_type == MATERIAL_LAMBERT) {
-
-            vec3 albedo = vec3(sample_1d(
-
-                material_lambert_color, material_index, N_MATERIAL_LAMBERT
-            ));
-
-            float G = form_factor(
-
-                collision_point, collision.normal,
-                light_surface_point, light_surface_normal
-            );
-            //vec3 brdf = brdf_lambert(albedo);
-
-            //color = diffuse;
-            color = albedo * light.color * light.intensity * G;
+                bounce_direction = rotation_axis_angle(axis, angle) * bounce_direction;
+            }
         }
+
+        ray.origin = collision_point;
+        ray.direction = normalize(bounce_direction);
+
+        // adjust weight //
+
+        weight *= (1.0 / pdf) * dot(-ray.direction, collision.normal);
     }
 
     return color;

@@ -13,228 +13,200 @@
     <title>Cornell Box Example [webgl-pathtracer]</title>
 
     <script src="https://code.jquery.com/jquery-2.1.4.min.js"></script>
-
     <script src="../bower_components/three.js/build/three.js"></script>
 
     <link rel="stylesheet" href="example.css">
 
     <script src="../dist/glpt.js"></script>
+    <script src="Postprocessor.js"></script>
+
     <script>
-
-        function render_path_tracing() {
-
-            var materials = [
-
-                {
-                    type: GLPT.Material.Lambert,
-                    color: new THREE.Color('red')
-                },
-
-                {
-                    type: GLPT.Material.Lambert,
-                    color: new THREE.Color('orange')
-                },
-
-                {
-                    type: GLPT.Material.Lambert,
-                    color: new THREE.Color('yellow')
-                },
-
-                {
-                    type: GLPT.Material.Lambert,
-                    color: new THREE.Color('green')
-                },
-
-                {
-                    type: GLPT.Material.Lambert,
-                    color: new THREE.Color('blue')
-                },
-
-                {
-                    type: GLPT.Material.Lambert,
-                    color: new THREE.Color('violet')
-                }
-            ];
-
-            var red = 0, orange = 1, yellow = 2, green = 3, blue = 4, violet = 5;
-
-            var geometry = [
-
-                // left wall
-                {
-                    shape: {
-
-                        type: GLPT.Primitive.Plane,
-                        position: {x: -1, y: 0, z: 0},
-                        normal: {x: 1, y: 0, z: 0}
-                    },
-
-                    material_index: red
-                },
-
-                // right wall
-                {
-                    shape: {
-
-                        type: GLPT.Primitive.Plane,
-                        position: {x: 1, y: 0, z: 0},
-                        normal: {x: -1, y: 0, z: 0}
-                    },
-
-                    material_index: orange
-                },
-
-                // front wall
-                {
-                    shape: {
-
-                        type: GLPT.Primitive.Plane,
-                        position: {x: 0, y: 0, z: 1},
-                        normal: {x: 0, y: 0, z: -1}
-                    },
-
-                    material_index: yellow
-                },
-
-                // back wall
-                {
-                    shape: {
-
-                        type: GLPT.Primitive.Plane,
-                        position: {x: 0, y: 0, z: -1},
-                        normal: {x: 0, y: 0, z: 1}
-                    },
-
-                    material_index: green
-                },
-
-                // top wall
-                {
-                    shape: {
-
-                        type: GLPT.Primitive.Plane,
-                        position: {x: 0, y: 1, z: 0},
-                        normal: {x: 0, y: -1, z: 0}
-                    },
-
-                    material_index: blue
-                },
-
-                {
-                    shape: {
-
-                        type: GLPT.Primitive.Plane,
-                        position: {x: 0, y: -1, z: 0},
-                        normal: {x: 0, y: 1, z: 0}
-                    },
-
-                    material_index: violet
-                }
-            ];
-
-            var lighting = [
-
-                {
-                    type: GLPT.Light.Sphere,
-                    position: {x: 0, y: 0, z: 0},
-                    radius: 0.05,
-                    color: {r: 1, g: 1, b: 0.5},
-                    intensity: 1
-                }
-            ];
-
-            var scene = {materials: materials, geometry: geometry, lighting: lighting};
-
-            var renderer = new GLPT.Renderer({
-
-                canvas: document.getElementById('render-target')
-            });
-
-            renderer.scene = scene;
-            renderer.camera.position.set(0, 0, 3);
-            renderer.camera.rotation.set(0, 0, 0);
-            renderer.camera.fov = 75;
-
-            renderer.update();
-
-            renderer.render();
-        }
-
-        function render_reference() {
-
-            var scene = new THREE.Scene();
-
-            var canvas = document.getElementById('render-reference');
-            var renderer = new THREE.WebGLRenderer({canvas: canvas});
-
-            var plane = new THREE.PlaneGeometry(2, 2, 10, 10);
-
-            var materials = {
-
-                red: new THREE.MeshLambertMaterial({color: 0xff0000, side: THREE.FrontSide}),
-                orange: new THREE.MeshLambertMaterial({color: 0xff7f00, side: THREE.FrontSide}),
-                yellow: new THREE.MeshLambertMaterial({color: 0xffff00, side: THREE.FrontSide}),
-                green: new THREE.MeshLambertMaterial({color: 0x00ff00, side: THREE.FrontSide}),
-                blue: new THREE.MeshLambertMaterial({color: 0x0000ff, side: THREE.FrontSide}),
-                indigo: new THREE.MeshLambertMaterial({color: 0x4b0082, side: THREE.FrontSide}),
-                violet: new THREE.MeshLambertMaterial({color: 0x8b00ff, side: THREE.FrontSide}),
-                white: new THREE.MeshLambertMaterial({color: 0xffffff, side: THREE.FrontSide})
-            };
-
-            var left = new THREE.Mesh(plane, materials.red);
-            left.position.x = -1;
-            left.rotation.y = 0.5 * Math.PI;
-
-            var right = new THREE.Mesh(plane, materials.orange);
-            right.position.x = 1;
-            right.rotation.y = -0.5 * Math.PI;
-
-            var front = new THREE.Mesh(plane, materials.yellow);
-            front.position.z = 1;
-            front.rotation.x = Math.PI;
-
-            var back = new THREE.Mesh(plane, materials.green);
-            back.position.z = -1;
-
-            var top = new THREE.Mesh(plane, materials.blue);
-            top.position.y = 1;
-            top.rotation.x = 0.5 * Math.PI;
-
-            var bottom = new THREE.Mesh(plane, materials.violet);
-            bottom.position.y = -1;
-            bottom.rotation.x = -0.5 * Math.PI;
-
-            scene.add(left, right, front, back, top, bottom);
-
-            var light = new THREE.PointLight(0xffffff, 1, 100);
-            light.position.set(0, 0.95, 0);
-
-            scene.add(light);
-
-            var camera = new THREE.PerspectiveCamera(75, canvas.width / canvas.height, 0.1, 1000);
-            camera.position.set(0, 0, 3);
-            camera.rotation.set(0, 0, 0);
-
-            renderer.render(scene, camera);
-        }
 
         $(document).ready(function() {
 
-            render_reference();
-            render_path_tracing();
+            var WIDTH = 512, HEIGHT = 512;
+
+            var postprocessor = new Postprocessor(WIDTH, HEIGHT);
+            var pathtracer = null;
+//            var renderer = new THREE.WebGLRenderer({
+//
+//                canvas: document.getElementById('render-average')
+//            });
+
+            function init_pathtracer() {
+
+                var materials = [
+
+                    {
+                        type: GLPT.Material.Lambert,
+                        color: new THREE.Color('red')
+                    },
+
+                    {
+                        type: GLPT.Material.Lambert,
+                        color: new THREE.Color('orange')
+                    },
+
+                    {
+                        type: GLPT.Material.Lambert,
+                        color: new THREE.Color('yellow')
+                    },
+
+                    {
+                        type: GLPT.Material.Lambert,
+                        color: new THREE.Color('green')
+                    },
+
+                    {
+                        type: GLPT.Material.Lambert,
+                        color: new THREE.Color('gray')
+                    },
+
+                    {
+                        type: GLPT.Material.Lambert,
+                        color: new THREE.Color('violet')
+                    }
+                ];
+
+                var red = 0, orange = 1, yellow = 2, green = 3, blue = 4, violet = 5;
+
+                var geometry = [
+
+                    // left wall
+                    {
+                        shape: {
+
+                            type: GLPT.Primitive.Plane,
+                            position: {x: -1, y: 0, z: 0},
+                            normal: {x: 1, y: 0, z: 0}
+                        },
+
+                        material_index: red
+                    },
+
+                    // right wall
+                    {
+                        shape: {
+
+                            type: GLPT.Primitive.Plane,
+                            position: {x: 1, y: 0, z: 0},
+                            normal: {x: -1, y: 0, z: 0}
+                        },
+
+                        material_index: orange
+                    },
+
+                    // front wall
+                    {
+                        shape: {
+
+                            type: GLPT.Primitive.Plane,
+                            position: {x: 0, y: 0, z: 1},
+                            normal: {x: 0, y: 0, z: -1}
+                        },
+
+                        material_index: yellow
+                    },
+
+                    // back wall
+                    {
+                        shape: {
+
+                            type: GLPT.Primitive.Plane,
+                            position: {x: 0, y: 0, z: -1},
+                            normal: {x: 0, y: 0, z: 1}
+                        },
+
+                        material_index: green
+                    },
+
+                    // top wall
+                    {
+                        shape: {
+
+                            type: GLPT.Primitive.Plane,
+                            position: {x: 0, y: 1, z: 0},
+                            normal: {x: 0, y: -1, z: 0}
+                        },
+
+                        material_index: blue
+                    },
+
+                    {
+                        shape: {
+
+                            type: GLPT.Primitive.Plane,
+                            position: {x: 0, y: -1, z: 0},
+                            normal: {x: 0, y: 1, z: 0}
+                        },
+
+                        material_index: violet
+                    }
+                ];
+
+                var lighting = [
+
+                    {
+                        type: GLPT.Light.Sphere,
+                        position: {x: 0, y: 0, z: 0},
+                        radius: 0.05,
+                        color: {r: 1, g: 1, b: 0.5},
+                        intensity: 8
+                    }
+                ];
+
+                var scene = {materials: materials, geometry: geometry, lighting: lighting};
+
+                pathtracer = new GLPT.Renderer({
+
+                    canvas: document.getElementById('render-live')
+                });
+
+                pathtracer.scene = scene;
+                pathtracer.camera.position.set(0, 0, 3);
+                pathtracer.camera.rotation.set(0, 0, 0);
+                pathtracer.camera.fov = 75;
+
+                pathtracer.update();
+            }
+
+            function render_loop() {
+
+                //pathtracer.render();
+
+                pathtracer.render(postprocessor.input_render_target);
+
+                postprocessor.process(pathtracer.renderer);
+
+                ++ postprocessor.divisor;
+
+                //requestAnimationFrame(render_loop);
+            }
+
+            init_pathtracer();
+            pathtracer.renderer.autoClear = false;
+
+            requestAnimationFrame(render_loop);
+
+            $(document).keyup(function() { requestAnimationFrame(render_loop)});
         });
     </script>
 </head>
 <body>
 
-    <canvas id="render-target" width="500" height="500">
+    <canvas id="render-live" width="512" height="512">
 
         Your browser does not support HTML5 canvas :(
     </canvas>
 
-    <canvas id="render-reference" width="500" height="500">
+    <!--<canvas id="render-average" width="512" height="512">-->
 
-        Your browser does not support HTML5 canvas :(
-    </canvas>
+        <!--Your browser does not support HTML5 canvas :(-->
+    <!--</canvas>-->
+
+    <!--<canvas id="render-reference" width="500" height="500">-->
+
+        <!--Your browser does not support HTML5 canvas :(-->
+    <!--</canvas>-->
 </body>
 </html>
