@@ -207,12 +207,15 @@ highp float noise(vec2 co)
 }
 
 vec2 uv;
+int rsi = 0;
 
-highp float random(const int i) {
+highp float random() {
+
+    rsi += 1;
 
     return noise(
 
-        0.5 * (uv.xy + sample_vec3(random_seeds, i, N_RANDOM_SEEDS).x)
+        0.5 * (uv.xy + sample_vec3(random_seeds, rsi, N_RANDOM_SEEDS).x)
     );
 }
 
@@ -431,16 +434,15 @@ void evaluate_material(inout Material material) {
 /**
  * Bounces a ray off a lambertian surface.
  *
- * @param      rsi   Random seed offset.
  * @param[out] pdf   Probability of chosen direction.
  *
  * @details
  *      This implementation draws from a cosine-weighted distribution.
  */
-vec3 bounce_lambert(inout int rsi, out float pdf) {
+vec3 bounce_lambert(out float pdf) {
 
-    float r1 = random(rsi++);
-    float r2 = random(rsi++);
+    float r1 = random();
+    float r2 = random();
 
     float a = M_2_PI * r1;
     float b = sqrt(1.0 - r2);
@@ -458,13 +460,12 @@ vec3 bounce_lambert(inout int rsi, out float pdf) {
  * @param x         Contact point.
  * @param nx        Normal at contact point.
  * @param P         Material brdf at contact point.
- * @param rsi       Random seed offset.
  */
-vec3 illuminate(const vec3 x, const vec3 nx, const vec3 P, inout int rsi) {
+vec3 illuminate(const vec3 x, const vec3 nx, const vec3 P) {
 
     int light_index = random_range_i(
 
-        0, N_LIGHTING_SPHERE, random(rsi++)
+        0, N_LIGHTING_SPHERE, random()
     );
 
     SphereLight light = get_sphere_light(light_index);
@@ -472,7 +473,7 @@ vec3 illuminate(const vec3 x, const vec3 nx, const vec3 P, inout int rsi) {
     vec3 y = random_on_sphere(
 
         light.position, light.radius,
-        random(rsi++), random(rsi++)
+        random(), random()
     );
 
     if (!visible(x, y)) { return vec3(0, 0, 0); }
@@ -489,11 +490,9 @@ vec3 illuminate(const vec3 x, const vec3 nx, const vec3 P, inout int rsi) {
 /**
  * Traces a ray through the scene.
  *
- * @param rsi   Random seed index offset.
- *
  * @returns Color.
  */
-vec3 trace(Ray ray, inout int rsi) {
+vec3 trace(Ray ray) {
 
     vec3 color = vec3(0, 0, 0);
     vec3 weight = vec3(1, 1, 1);
@@ -516,7 +515,7 @@ vec3 trace(Ray ray, inout int rsi) {
 
         // direct lighting //
 
-        color += weight * illuminate(collision_point, collision.normal, P, rsi);
+        color += weight * illuminate(collision_point, collision.normal, P);
 
         // russian roulette //
 
@@ -527,13 +526,13 @@ vec3 trace(Ray ray, inout int rsi) {
              collision.material.albedo.z) / 3.0
         );
 
-        if (random(rsi++) > alpha) { break; }
+        if (random() > alpha) { break; }
         else { weight /= alpha; }
 
         // bounce ray //
 
         float pdf;
-        vec3 bounce_direction = bounce_lambert(rsi, pdf);  // on unit hemisphere
+        vec3 bounce_direction = bounce_lambert(pdf);  // on unit hemisphere
 
         if (all(equal(collision.normal, -UNIT_Y))) { bounce_direction.y *= -1.0; }
         else {
@@ -560,11 +559,10 @@ vec3 trace(Ray ray, inout int rsi) {
  * Traces a ray through a pixel.
  *
  * @param pixel     Pixel in projection space (x, y) e [-1, 1]
- * @param rsi       Random seed index offset.
  *
  * @returns Color.
  */
-vec3 trace_through(const vec2 pixel, inout int rsi) {
+vec3 trace_through(const vec2 pixel) {
 
     // Pixel in camera space
     vec3 p = vec3(camera_projection_matrix_inverse * vec4(pixel, 0, 1));
@@ -576,14 +574,14 @@ vec3 trace_through(const vec2 pixel, inout int rsi) {
     vec3 D = vec3(camera_world_matrix * vec4(p, 1)) - o;
 
     // Trace
-    return trace(Ray(o, normalize(D)), rsi);
+    return trace(Ray(o, normalize(D)));
 }
 
 
 void main(void) {
 
     uv = (vs_pixel + 1.0) * 0.5;
-    int rsi = 0;  // random seed index
+    rsi = 0;
 
     float degree = float(pixel_sampler_grid_degree);
 
@@ -606,7 +604,7 @@ void main(void) {
 
             if (cell_index.y >= degree) { break; }
 
-            sum += trace_through(origin + cell_index * cell_size, rsi);
+            sum += trace_through(origin + cell_index * cell_size);
 
             cell_index.y += 1.0;
         }
