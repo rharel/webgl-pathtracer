@@ -430,7 +430,11 @@ vec3 brdf(const Material material, const vec3 wi, const vec3 n) {
 /**
  * Bounces a ray off a lambertian surface.
  *
- * @param rsi   Random seed offset.
+ * @param      rsi   Random seed offset.
+ * @param[out] pdf   Probability of chosen direction.
+ *
+ * @details
+ *      This implementation draws from a cosine-weighted distribution.
  */
 vec3 bounce_lambert(inout int rsi, out float pdf) {
 
@@ -438,11 +442,13 @@ vec3 bounce_lambert(inout int rsi, out float pdf) {
     float r2 = random(rsi++);
 
     float a = M_2_PI * r1;
-    float b = sqrt(1.0 - r2 * r2);
+    float b = sqrt(1.0 - r2);
 
-    pdf = 1.0 / M_2_PI;  // uniform sampling
+    float z = sqrt(r2);
 
-    return normalize(vec3(cos(a) * b, sin(a) * b, r2));
+    pdf = z / M_PI;
+
+    return normalize(vec3(cos(a) * b, sin(a) * b, z));
 }
 
 /**
@@ -569,11 +575,13 @@ void main(void) {
     vec3 sum = vec3(0, 0, 0);
 
     cell_index.x = 0.5;
+
     for (int i = 0; i >= 0; ++i) {
 
         if (cell_index.x >= degree) { break; }
 
         cell_index.y = 0.5;
+
         for (int j = 0; j >= 0; ++j) {
 
             if (cell_index.y >= degree) { break; }
