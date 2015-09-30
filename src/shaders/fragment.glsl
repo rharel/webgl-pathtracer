@@ -16,6 +16,7 @@ precision mediump float;
 
 const int N_RANDOM_SEEDS = N_RANDOM_SEEDS_;
 const int N_MATERIAL_LAMBERT = N_MATERIAL_LAMBERT_;
+const int N_GEOMETRY_SPHERE = N_GEOMETRY_SPHERE_;
 const int N_GEOMETRY_PLANE = N_GEOMETRY_PLANE_;
 const int N_LIGHTING_SPHERE = N_LIGHTING_SPHERE_;
 
@@ -56,10 +57,15 @@ uniform mat4 camera_projection_matrix_inverse;
 
 uniform sampler2D material_lambert_color;
 
-uniform vec3 geometry_plane_position[N_GEOMETRY_PLANE];
-uniform vec3 geometry_plane_normal[N_GEOMETRY_PLANE];
-uniform int geometry_plane_material_type[N_GEOMETRY_PLANE];
-uniform int geometry_plane_material_index[N_GEOMETRY_PLANE];
+uniform vec3 geometry_plane_position[N_GEOMETRY_PLANE + 1];
+uniform vec3 geometry_plane_normal[N_GEOMETRY_PLANE + 1];
+uniform int geometry_plane_material_type[N_GEOMETRY_PLANE + 1];
+uniform int geometry_plane_material_index[N_GEOMETRY_PLANE + 1];
+
+uniform vec3 geometry_sphere_position[N_GEOMETRY_SPHERE + 1];
+uniform float geometry_sphere_radius[N_GEOMETRY_SPHERE + 1];
+uniform int geometry_sphere_material_type[N_GEOMETRY_SPHERE + 1];
+uniform int geometry_sphere_material_index[N_GEOMETRY_SPHERE + 1];
 
 uniform sampler2D lighting_sphere_position;
 uniform sampler2D lighting_sphere_radius;
@@ -272,14 +278,37 @@ float intersect_plane(const Ray ray, const vec3 position, const vec3 normal) {
 }
 
 /**
- * Casts a ray through all planes in the scene and returns the earliest collision
- * that happens before a given minimum time.
+ * Tests for ray-sphere intersection.
  */
-Collision raycast_planes(const Ray ray, const float min_t) {
+float intersect_sphere(const Ray ray, const vec3 center, const float radius) {
 
-    Collision collision;
-    collision.exists = false;
-    collision.t = min_t;
+    vec3 co = ray.origin - center;
+    float r2 = radius * radius;
+
+    float co_len2 = dot(co, co);
+
+    if (co_len2 < r2) { return -1.0; }  // origin is inside the sphere
+
+    float a = dot(ray.direction, ray.direction);
+    float b = dot(ray.direction, co) * 2.0;
+    float c = co_len2 - r2;
+
+    float det = b * b - 4.0 * a * c;
+
+    if (det < 0.0) { return -1.0; }  // no intersection
+
+    float sqrt_det = sqrt(det);
+    float t = (-b + sqrt_det) / (2.0 * a);
+
+    if (det == 0.0) { return t; }
+    else { return min(t, (-b - sqrt_det) / (2.0 * a)); }
+}
+
+/**
+ * Casts a ray through all planes in the scene and returns the earliest collision
+ * that happens before a given collision.
+ */
+void raycast_planes(const Ray ray, inout Collision collision) {
 
     for (int i = 0; i < N_GEOMETRY_PLANE; ++i) {
 
@@ -303,13 +332,49 @@ Collision raycast_planes(const Ray ray, const float min_t) {
              );
         }
     }
+}
 
-    return collision;
+/**
+ * Casts a ray through all spheres in the scene and returns the earliest collision
+ * that happens before a given collision.
+ */
+void raycast_spheres(const Ray ray, inout Collision collision) {
+
+    for (int i = 0; i < N_GEOMETRY_SPHERE; ++i) {
+
+        vec3 position = geometry_sphere_position[i];
+        float radius = geometry_sphere_radius[i];
+
+        float t = intersect_sphere(ray, position, radius);
+
+        if (t >= M_EPSILON && t < collision.t) {
+
+            collision.exists = true;
+
+            collision.t = t;
+
+            vec3 collision_point = (ray.origin + ray.direction * t);
+            collision.normal = normalize(collision_point - position);
+
+            collision.material = Material(
+
+               geometry_sphere_material_type[i],
+               geometry_sphere_material_index[i]
+            );
+        }
+    }
 }
 
 Collision raycast(const Ray ray, const float min_t) {
 
-    return raycast_planes(ray, min_t);
+    Collision collision;
+    collision.exists = false;
+    collision.t = min_t;
+
+    raycast_planes(ray, collision);
+    raycast_spheres(ray, collision);
+
+    return collision;
 }
 
 /**
@@ -415,9 +480,11 @@ vec3 trace(Ray ray) {
     vec3 color = vec3(0, 0, 0);
     float weight = 1.0;
 
-    Collision collision = raycast(ray);
+    Collision collision;
 
-    for (int depth = 0; depth < 1; depth++) {
+    for (int depth = 0; depth < 4; depth++) {
+
+        collision = raycast(ray);
 
         if (!collision.exists) { break; }
 
@@ -444,15 +511,13 @@ vec3 trace(Ray ray) {
             }
         }
 
+        weight *= dot(-ray.direction, collision.normal);
+
         ray.origin = collision_point;
         ray.direction = normalize(bounce_direction);
-
-        // adjust weight //
-
-        weight *= (1.0 / pdf) * dot(-ray.direction, collision.normal);
     }
 
-    return color;
+    return clamp(color, 0.0, 1.0);
 }
 
 /**

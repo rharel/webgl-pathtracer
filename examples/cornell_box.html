@@ -28,10 +28,6 @@
 
             var postprocessor = new Postprocessor(WIDTH, HEIGHT);
             var pathtracer = null;
-//            var renderer = new THREE.WebGLRenderer({
-//
-//                canvas: document.getElementById('render-average')
-//            });
 
             function init_pathtracer() {
 
@@ -54,7 +50,7 @@
 
                     {
                         type: GLPT.Material.Lambert,
-                        color: new THREE.Color('green')
+                        color: new THREE.Color(0x00ff00)
                     },
 
                     {
@@ -65,10 +61,15 @@
                     {
                         type: GLPT.Material.Lambert,
                         color: new THREE.Color('violet')
+                    },
+
+                    {
+                        type: GLPT.Material.Lambert,
+                        color: new THREE.Color(0xffffff)
                     }
                 ];
 
-                var red = 0, orange = 1, yellow = 2, green = 3, blue = 4, violet = 5;
+                var red = 0, orange = 1, yellow = 2, green = 3, blue = 4, violet = 5, white = 6;
 
                 var geometry = [
 
@@ -81,7 +82,7 @@
                             normal: {x: 1, y: 0, z: 0}
                         },
 
-                        material_index: red
+                        material_index: white //red
                     },
 
                     // right wall
@@ -93,7 +94,7 @@
                             normal: {x: -1, y: 0, z: 0}
                         },
 
-                        material_index: orange
+                        material_index: white //orange
                     },
 
                     // front wall
@@ -105,7 +106,7 @@
                             normal: {x: 0, y: 0, z: -1}
                         },
 
-                        material_index: yellow
+                        material_index: white //yellow
                     },
 
                     // back wall
@@ -117,7 +118,7 @@
                             normal: {x: 0, y: 0, z: 1}
                         },
 
-                        material_index: green
+                        material_index: white //green
                     },
 
                     // top wall
@@ -129,9 +130,10 @@
                             normal: {x: 0, y: -1, z: 0}
                         },
 
-                        material_index: blue
+                        material_index: red //blue
                     },
 
+                    // bottom wall
                     {
                         shape: {
 
@@ -140,7 +142,19 @@
                             normal: {x: 0, y: 1, z: 0}
                         },
 
-                        material_index: violet
+                        material_index: white
+                    },
+
+                    // sphere A
+                    {
+                        shape: {
+
+                            type: GLPT.Primitive.Sphere,
+                            position: {x: 0.3, y: -0.5, z: -0.5},
+                            radius: 0.5
+                        },
+
+                        material_index: green
                     }
                 ];
 
@@ -148,10 +162,10 @@
 
                     {
                         type: GLPT.Light.Sphere,
-                        position: {x: 0, y: 0, z: 0},
-                        radius: 0.05,
-                        color: {r: 1, g: 1, b: 0.5},
-                        intensity: 8
+                        position: {x: 0.0, y: 0.75, z: 0.0},
+                        radius: 0.25,
+                        color: {r: 1, g: 1, b: 1},
+                        intensity: 6
                     }
                 ];
 
@@ -170,9 +184,10 @@
                 pathtracer.update();
             }
 
-            function render_loop() {
+            var MAX_RENDER_CALLS = 1000;
+            var $render_call_counter = $('#render-call-counter');
 
-                //pathtracer.render();
+            function render_loop() {
 
                 pathtracer.render(postprocessor.input_render_target);
 
@@ -180,7 +195,15 @@
 
                 ++ postprocessor.divisor;
 
-                //requestAnimationFrame(render_loop);
+                $render_call_counter.text(
+
+                    (postprocessor.divisor - 1) + ' / ' + MAX_RENDER_CALLS
+                );
+
+                if (postprocessor.divisor <= MAX_RENDER_CALLS) {
+
+                    requestAnimationFrame(render_loop);
+                }
             }
 
             init_pathtracer();
@@ -188,11 +211,13 @@
 
             requestAnimationFrame(render_loop);
 
-            $(document).keyup(function() { requestAnimationFrame(render_loop)});
+            //$(document).keyup(function() { requestAnimationFrame(render_loop)});
         });
     </script>
 </head>
 <body>
+
+    <h3>Render calls: <span id="render-call-counter"></span></h3>
 
     <canvas id="render-live" width="512" height="512">
 
