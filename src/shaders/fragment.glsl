@@ -35,7 +35,7 @@ const float M_EPSILON = 0.001;  // small number
 
 const vec3 UNIT_Y = vec3(0, 1, 0);
 
-const int MAX_DEPTH = 5;  // max #(ray bounces)
+const int MAX_DEPTH = 10;  // max #(ray bounces)
 
 // uniforms //
 
@@ -92,6 +92,9 @@ struct Material {
 
     int type;
     int index;
+
+    // lambert
+    vec3 albedo;
 };
 
 struct Ray {
@@ -115,32 +118,44 @@ struct Collision {
 
 // texture sampling
 
-vec4 sample_1d(sampler2D sampler, const int i, const int n) {
+vec3 sample_vec3(sampler2D sampler, const int i, const int n) {
 
     float x = (float(i) + 0.5) / float(n);
-    return texture2D(sampler, vec2(x, 0.5));
+    return vec3(texture2D(sampler, vec2(x, 0.5)));
 }
+
+//float sample_float(sampler2D sampler, const int i, const int n) {
+//
+//    float x = (floor(0.25 * float(i)) + 0.5) / (0.25 * float(n));
+//    vec4 batch = texture2D(sampler, vec2(x, 0.5));
+//    int j = int(mod(float(i), 4.0));
+//
+//    if (j == 0) { return batch.r; }
+//    else if (j == 1) { return batch.g; }
+//    else if (j == 2) { return batch.b; }
+//    else { return batch.a; }
+//}
 
 SphereLight get_sphere_light(const int i) {
 
     return SphereLight(
 
-        vec3(sample_1d(
+        sample_vec3(
 
             lighting_sphere_position, i, N_LIGHTING_SPHERE
-        )),
+        ),
 
-        sample_1d(
+        sample_vec3(
 
             lighting_sphere_radius, i, N_LIGHTING_SPHERE
         ).x,
 
-        vec3(sample_1d(
+        sample_vec3(
 
             lighting_sphere_color, i, N_LIGHTING_SPHERE
-        )),
+        ),
 
-        sample_1d(
+        sample_vec3(
 
             lighting_sphere_intensity, i, N_LIGHTING_SPHERE
         ).x
@@ -185,17 +200,19 @@ highp float noise(vec2 co)
     highp float a = 12.9898;
     highp float b = 78.233;
     highp float c = 43758.5453;
-    highp float dt = dot(co.xy ,vec2(a,b));
-    highp float sn = mod(dt,3.14);
+    highp float dt = dot(co.xy ,vec2(a, b));
+    highp float sn = mod(dt, 3.14);
 
     return fract(sin(sn) * c);
 }
+
+vec2 uv;
 
 highp float random(const int i) {
 
     return noise(
 
-        0.5 * (gl_FragCoord.xy + sample_1d(random_seeds, i, N_RANDOM_SEEDS).x)
+        0.5 * (uv.xy + sample_vec3(random_seeds, i, N_RANDOM_SEEDS).x)
     );
 }
 
@@ -224,25 +241,6 @@ vec3 random_on_sphere(
         c * sin(theta),
         u
     );
-}
-
-vec3 random_on_hemisphere(
-    const vec3 center, const float radius, const vec3 normal,
-    const float r1, const float r2) {
-
-    float a = M_2_PI * r1;
-    float b = sqrt(1.0 - r2 * r2);
-
-    vec3 v = normalize(vec3(cos(a) * b, sin(a) * b, r2));
-
-    // align with hemisphere normal
-
-    vec3 axis = normalize(cross(normal, UNIT_Y));
-    float angle = acos(dot(normal, v));
-
-    vec3 d = rotation_axis_angle(axis, angle) * v;
-
-    return center + d * radius;
 }
 
 // tracing
@@ -320,17 +318,14 @@ void raycast_planes(const Ray ray, inout Collision collision) {
 
         if (t >= M_EPSILON && t < collision.t) {
 
-             collision.exists = true;
+            collision.exists = true;
 
-             collision.t = t;
+            collision.t = t;
 
-             collision.normal = normal;
+            collision.normal = normal;
 
-             collision.material = Material(
-
-                geometry_plane_material_type[i],
-                geometry_plane_material_index[i]
-             );
+            collision.material.type = geometry_plane_material_type[i];
+            collision.material.index = geometry_plane_material_index[i];
         }
     }
 }
@@ -357,11 +352,8 @@ void raycast_spheres(const Ray ray, inout Collision collision) {
             vec3 collision_point = (ray.origin + ray.direction * t);
             collision.normal = normalize(collision_point - position);
 
-            collision.material = Material(
-
-               geometry_sphere_material_type[i],
-               geometry_sphere_material_index[i]
-            );
+            collision.material.type = geometry_sphere_material_type[i];
+            collision.material.index = geometry_sphere_material_index[i];
         }
     }
 }
@@ -415,17 +407,26 @@ vec3 brdf(const Material material, const vec3 wi, const vec3 n) {
 
     if (material.type == MATERIAL_LAMBERT) {
 
-        vec3 albedo = vec3(sample_1d(
-
-            material_lambert_color, material.index, N_MATERIAL_LAMBERT
-        ));
-
-        P = brdf_lambert(albedo);
+        P = brdf_lambert(material.albedo);
     }
 
     return P;
 }
 
+/**
+ * Fills in properties of the Material struct based on the common-to-all
+ * 'type' and 'index' material identifiers.
+ */
+void evaluate_material(inout Material material) {
+
+    if (material.type == MATERIAL_LAMBERT) {
+
+        material.albedo = sample_vec3(
+
+            material_lambert_color, material.index, N_MATERIAL_LAMBERT
+        );
+    }
+}
 
 /**
  * Bounces a ray off a lambertian surface.
@@ -476,7 +477,6 @@ vec3 illuminate(const vec3 x, const vec3 nx, const vec3 P, inout int rsi) {
 
     if (!visible(x, y)) { return vec3(0, 0, 0); }
 
-
     vec3 L = light.color * light.intensity;
     vec3 ny = normalize(y - light.position);
 
@@ -489,24 +489,26 @@ vec3 illuminate(const vec3 x, const vec3 nx, const vec3 P, inout int rsi) {
 /**
  * Traces a ray through the scene.
  *
+ * @param rsi   Random seed index offset.
+ *
  * @returns Color.
  */
-vec3 trace(Ray ray) {
-
-    int rsi = 0;  // random seed index
+vec3 trace(Ray ray, inout int rsi) {
 
     vec3 color = vec3(0, 0, 0);
     vec3 weight = vec3(1, 1, 1);
 
     Collision collision;
 
-    for (int depth = 0; depth < 4; depth++) {
+    for (int depth = 0; depth >= 0; depth++) {
 
         if (depth >= MAX_DEPTH) { break; }
 
         collision = raycast(ray);
 
         if (!collision.exists) { break; }
+
+        evaluate_material(collision.material);
 
         vec3 collision_point = ray.origin + ray.direction * collision.t;
         vec3 P = brdf(collision.material, ray.direction, collision.normal);
@@ -515,6 +517,18 @@ vec3 trace(Ray ray) {
         // direct lighting //
 
         color += weight * illuminate(collision_point, collision.normal, P, rsi);
+
+        // russian roulette //
+
+        float alpha = (
+
+            (collision.material.albedo.x +
+             collision.material.albedo.y +
+             collision.material.albedo.z) / 3.0
+        );
+
+        if (random(rsi++) > alpha) { break; }
+        else { weight /= alpha; }
 
         // bounce ray //
 
@@ -546,9 +560,11 @@ vec3 trace(Ray ray) {
  * Traces a ray through a pixel.
  *
  * @param pixel     Pixel in projection space (x, y) e [-1, 1]
+ * @param rsi       Random seed index offset.
+ *
  * @returns Color.
  */
-vec3 trace_through(const vec2 pixel) {
+vec3 trace_through(const vec2 pixel, inout int rsi) {
 
     // Pixel in camera space
     vec3 p = vec3(camera_projection_matrix_inverse * vec4(pixel, 0, 1));
@@ -560,10 +576,14 @@ vec3 trace_through(const vec2 pixel) {
     vec3 D = vec3(camera_world_matrix * vec4(p, 1)) - o;
 
     // Trace
-    return trace(Ray(o, normalize(D)));
+    return trace(Ray(o, normalize(D)), rsi);
 }
 
+
 void main(void) {
+
+    uv = (vs_pixel + 1.0) * 0.5;
+    int rsi = 0;  // random seed index
 
     float degree = float(pixel_sampler_grid_degree);
 
@@ -586,7 +606,7 @@ void main(void) {
 
             if (cell_index.y >= degree) { break; }
 
-            sum += trace_through(origin + cell_index * cell_size);
+            sum += trace_through(origin + cell_index * cell_size, rsi);
 
             cell_index.y += 1.0;
         }
@@ -595,4 +615,13 @@ void main(void) {
     }
 
     gl_FragColor = vec4(sum / (degree * degree), 1);
+
+//    vec2 p = (vs_pixel + 1.0) * 0.5;
+//
+//    float r = sample_float(
+//
+//        random_seeds,
+//        int(p.x * float(512)),
+//        N_RANDOM_SEEDS
+//    );
 }
