@@ -41,6 +41,7 @@ function Renderer(options) {
   this._3_mesh = null;
 
   this._pixel_sampler = options.pixel_sampler || default_options.pixel_sampler;
+  this._resolution = new THREE.Vector2(this._canvas.width, this._canvas.height);
   this._scene = options.scene || [];
   this._camera = options.camera || new THREE.PerspectiveCamera(
 
@@ -51,7 +52,7 @@ function Renderer(options) {
 }
 
 
-Renderer.N_RANDOM_SEEDS = 100;
+Renderer.N_RANDOM_SEEDS = 1000;
 
 
 Renderer.prototype = {
@@ -248,7 +249,7 @@ Renderer.prototype = {
 
       // pixel sampling //
 
-      resolution: {type: "v2", value: new THREE.Vector2(this._canvas.width, this._canvas.height) },
+      resolution: {type: "v2", value: this._resolution },
       pixel_sampler_grid_degree: {type: "i", value: this._pixel_sampler.degree || 1},
 
       // camera //
