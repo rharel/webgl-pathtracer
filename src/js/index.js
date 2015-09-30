@@ -20,6 +20,8 @@ if (typeof window !== 'undefined') {
     Material: Material,
     Light: Light,
 
-    Renderer: Renderer
+    Renderer: Renderer,
+
+    Stratifier: Stratifier
   };
 }

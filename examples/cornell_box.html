@@ -173,7 +173,13 @@
 
                 pathtracer = new GLPT.Renderer({
 
-                    canvas: document.getElementById('render-live')
+                    canvas: document.getElementById('render-live'),
+
+                    pixel_sampler: {
+
+                        stratifier: GLPT.Stratifier.Grid,
+                        degree: 4
+                    }
                 });
 
                 pathtracer.scene = scene;

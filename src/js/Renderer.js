@@ -248,6 +248,7 @@ Renderer.prototype = {
 
       // pixel sampling //
 
+      resolution: {type: "v2", value: new THREE.Vector2(this._canvas.width, this._canvas.height) },
       pixel_sampler_grid_degree: {type: "i", value: this._pixel_sampler.degree || 1},
 
       // camera //

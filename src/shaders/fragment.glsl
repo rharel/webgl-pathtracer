@@ -35,7 +35,7 @@ const float M_EPSILON = 0.001;  // small number
 
 const vec3 UNIT_Y = vec3(0, 1, 0);
 
-const int MAX_DEPTH = 3;  // max #(ray bounces)
+const int MAX_DEPTH = 5;  // max #(ray bounces)
 
 // uniforms //
 
@@ -45,6 +45,7 @@ uniform sampler2D random_seeds;
 
 // pixel sampling
 
+uniform vec2 resolution;
 uniform int pixel_sampler_grid_degree;
 
 // camera
@@ -406,6 +407,27 @@ vec3 brdf_lambert(const vec3 albedo) {
 }
 
 /**
+ * Evaluates materials brdf given ray incoming direction and surface normal.
+ */
+vec3 brdf(const Material material, const vec3 wi, const vec3 n) {
+
+    vec3 P;
+
+    if (material.type == MATERIAL_LAMBERT) {
+
+        vec3 albedo = vec3(sample_1d(
+
+            material_lambert_color, material.index, N_MATERIAL_LAMBERT
+        ));
+
+        P = brdf_lambert(albedo);
+    }
+
+    return P;
+}
+
+
+/**
  * Bounces a ray off a lambertian surface.
  *
  * @param rsi   Random seed offset.
@@ -428,10 +450,10 @@ vec3 bounce_lambert(inout int rsi, out float pdf) {
  *
  * @param x         Contact point.
  * @param nx        Normal at contact point.
- * @param material  Material at contact point.
+ * @param P         Material brdf at contact point.
  * @param rsi       Random seed offset.
  */
-vec3 illuminate(const vec3 x, const vec3 nx, const Material material, inout int rsi) {
+vec3 illuminate(const vec3 x, const vec3 nx, const vec3 P, inout int rsi) {
 
     int light_index = random_range_i(
 
@@ -448,24 +470,14 @@ vec3 illuminate(const vec3 x, const vec3 nx, const Material material, inout int 
 
     if (!visible(x, y)) { return vec3(0, 0, 0); }
 
-    vec3 P;  // BRDF
-    float G;  // form factor
 
     vec3 L = light.color * light.intensity;
     vec3 ny = normalize(y - light.position);
 
-    if (material.type == MATERIAL_LAMBERT) {
+    float G = form_factor(x, nx, y, ny);
+    float A = 4.0 * M_PI * light.radius * light.radius;
 
-        vec3 albedo = vec3(sample_1d(
-
-            material_lambert_color, material.index, N_MATERIAL_LAMBERT
-        ));
-
-        P = brdf_lambert(albedo);
-        G = form_factor(x, nx, y, ny);
-    }
-
-    return P * L * G;
+    return P * L * G * A;
 }
 
 /**
@@ -478,21 +490,25 @@ vec3 trace(Ray ray) {
     int rsi = 0;  // random seed index
 
     vec3 color = vec3(0, 0, 0);
-    float weight = 1.0;
+    vec3 weight = vec3(1, 1, 1);
 
     Collision collision;
 
     for (int depth = 0; depth < 4; depth++) {
+
+        if (depth >= MAX_DEPTH) { break; }
 
         collision = raycast(ray);
 
         if (!collision.exists) { break; }
 
         vec3 collision_point = ray.origin + ray.direction * collision.t;
+        vec3 P = brdf(collision.material, ray.direction, collision.normal);
+        float cos_theta = dot(-ray.direction, collision.normal);
 
         // direct lighting //
 
-        color += weight * illuminate(collision_point, collision.normal, collision.material, rsi);
+        color += weight * illuminate(collision_point, collision.normal, P, rsi);
 
         // bounce ray //
 
@@ -511,7 +527,7 @@ vec3 trace(Ray ray) {
             }
         }
 
-        weight *= dot(-ray.direction, collision.normal);
+        weight *= P * cos_theta / pdf;
 
         ray.origin = collision_point;
         ray.direction = normalize(bounce_direction);
@@ -523,6 +539,7 @@ vec3 trace(Ray ray) {
 /**
  * Traces a ray through a pixel.
  *
+ * @param pixel     Pixel in projection space (x, y) e [-1, 1]
  * @returns Color.
  */
 vec3 trace_through(const vec2 pixel) {
@@ -542,5 +559,32 @@ vec3 trace_through(const vec2 pixel) {
 
 void main(void) {
 
-    gl_FragColor = vec4(trace_through(vs_pixel), 1);
+    float degree = float(pixel_sampler_grid_degree);
+
+    vec2 pixel_size = 2.0 / resolution;
+    vec2 cell_size = pixel_size / float(degree);
+    vec2 cell_index = vec2(0, 0);
+
+    vec2 origin = vs_pixel - 0.5 * pixel_size;
+    vec3 sum = vec3(0, 0, 0);
+
+    cell_index.x = 0.5;
+    for (int i = 0; i >= 0; ++i) {
+
+        if (cell_index.x >= degree) { break; }
+
+        cell_index.y = 0.5;
+        for (int j = 0; j >= 0; ++j) {
+
+            if (cell_index.y >= degree) { break; }
+
+            sum += trace_through(origin + cell_index * cell_size);
+
+            cell_index.y += 1.0;
+        }
+
+        cell_index.x += 1.0;
+    }
+
+    gl_FragColor = vec4(sum / (degree * degree), 1);
 }
