@@ -8,5 +8,6 @@
 
 var Material = {
 
-  Lambert: 0
+  Lambert: 0,
+  Mirror: 1
 };
