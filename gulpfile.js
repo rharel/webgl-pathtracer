@@ -100,11 +100,16 @@ gulp.task('concat:dist', ['clean:dist', 'transpile:shaders'], function() {
     'src/shaders/fragment.js',
 
     'src/js/TextureUtils.js',
+
     'src/js/Primitive.js',
     'src/js/Material.js',
     'src/js/Light.js',
     'src/js/Stratifier.js',
-    'src/js/Renderer.js',
+
+    'src/js/Screen.js',
+    'src/js/Tracer.js',
+    'src/js/Composer.js',
+
     'src/js/index.js'
   ])
 

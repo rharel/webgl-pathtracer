@@ -5,11 +5,23 @@
  * @url https://github.com/rharel/webgl-pathtracer
  */
 
-
-function Renderer(options) {
+/**
+ * The Tracer class is responsible for rendering a scene.
+ *
+ * @param options Initial options object with the following keys:
+ *                resolution - {x:, y:}
+ *                pixel_sampler - {stratifier:, <stratifier-dependent-options>:}
+ *
+ * @note Currently, the only pixel sampler stratifier type Grid. See the documentation for the
+ *       Stratifier enumeration for additional information on its parameters.
+ *
+ * @constructor
+ */
+function Tracer(options) {
 
   var default_options = {
 
+    resolution: {x: 100, y: 100},
     pixel_sampler: {
 
       stratifier: Stratifier.Grid,
@@ -19,56 +31,34 @@ function Renderer(options) {
 
   options = options || default_options;
 
-  this._canvas = options.canvas || document.createElement('canvas');
-
-  this._3_renderer = new THREE.WebGLRenderer({canvas: this._canvas});
-  this._3_scene = new THREE.Scene();
-
-  var vertices = new THREE.Float32Attribute(6 * 3, 3);
-
-  vertices.setXYZ(0, -1, -1, 0);
-  vertices.setXYZ(1, -1,  1, 0);
-  vertices.setXYZ(2,  1,  1, 0);
-
-  vertices.setXYZ(3,  1,  1, 0);
-  vertices.setXYZ(4,  1, -1, 0);
-  vertices.setXYZ(5, -1, -1, 0);
-
-  this._3_geometry = new THREE.BufferGeometry();
-  this._3_geometry.addAttribute('position', vertices);
-
-  this._3_material = null;
-  this._3_mesh = null;
-
+  this._resolution = options.resolution || default_options.resolution;
   this._pixel_sampler = options.pixel_sampler || default_options.pixel_sampler;
-  this._resolution = new THREE.Vector2(this._canvas.width, this._canvas.height);
-  this._scene = options.scene || [];
-  this._camera = options.camera || new THREE.PerspectiveCamera(
 
-      75, this._canvas.width / this._canvas.height, 0.1, 1000
-  );
+  this._scene = {materials: [], geometry: [], lighting: []};
+  this._camera = new THREE.PerspectiveCamera(75, 1, 0.1, 1000);
 
   this._random_seeds = [];
+
+  this._screen = new Screen();
+
+  this._clear_buffers();
 }
 
 
-Renderer.N_RANDOM_SEEDS = 1000;
+Tracer.N_RANDOM_SEEDS = 1000;
 
 
-Renderer.prototype = {
+Tracer.prototype = {
 
-  constructor: Renderer,
+  constructor: Tracer,
 
-  _reset: function() {
+  _clear_buffers: function() {
 
     this._materials = {
 
-      lambert: {
-
-        color: []
-      }
+      lambert: { color: [] },
+      mirror: { gloss: [] }
     };
-
     this._material_index_map = {};
 
     this._geometry = {
@@ -104,20 +94,15 @@ Renderer.prototype = {
     };
   },
 
-  _process_materials: function(material_collection) {
+  _process_materials: function(materials) {
 
-    for (var i = 0; i < material_collection.length; ++i) {
+    for (var i = 0; i < materials.length; ++i) {
 
-      var material = material_collection[i];
+      var material = materials[i];
 
       if (material.type === Material.Lambert) {
 
-        var color = material.color;
-
-        this._materials.lambert.color.push(
-
-          new THREE.Vector3(color.r, color.g, color.b)
-        );
+        this._process_material_lambert(material);
 
         this._material_index_map[i] = {
 
@@ -125,100 +110,142 @@ Renderer.prototype = {
           index: this._materials.lambert.color.length - 1
         };
       }
+
+      else if (material.type === Material.Mirror) {
+
+        this._process_material_mirror(material);
+
+        this._material_index_map[i] = {
+
+          type: Material.Mirror,
+          index: this._materials.mirror.gloss.length - 1
+        };
+      }
     }
   },
+  _process_material_lambert: function(material) {
 
-  _process_geometry: function(geometry_collection) {
+    var color = material.color;
+
+    this._materials.lambert.color.push(
+
+      new THREE.Vector3(color.r, color.g, color.b)
+    );
+  },
+  _process_material_mirror: function(material) {
+
+    var gloss = typeof material.gloss !== 'undefined' ? material.gloss : 0;
+
+    this._materials.mirror.gloss.push(gloss);
+  },
+
+  _process_geometry: function(geometries) {
 
     var geometry, shape, material;
     var buffer;
 
-    for (var i = 0; i < geometry_collection.length; ++i) {
+    for (var i = 0; i < geometries.length; ++i) {
 
-      geometry = geometry_collection[i];
+      geometry = geometries[i];
       shape = geometry.shape;
       material = this._material_index_map[geometry.material_index];
 
       if (shape.type === Primitive.Sphere) {
 
         buffer = this._geometry.sphere;
-
-        buffer.position.push(
-
-          new THREE.Vector3(
-
-            shape.position.x,
-            shape.position.y,
-            shape.position.z
-          )
-        );
-
-        buffer.radius.push(shape.radius);
+        this._process_geometry_sphere(geometry);
       }
 
       else if (shape.type === Primitive.Plane) {
 
         buffer = this._geometry.plane;
-        
-        buffer.position.push(
-
-          new THREE.Vector3(
-
-            shape.position.x,
-            shape.position.y,
-            shape.position.z
-          )
-        );
-
-        buffer.normal.push(
-
-          new THREE.Vector3(
-
-            shape.normal.x,
-            shape.normal.y,
-            shape.normal.z
-          ).normalize()
-        );
+        this._process_geometry_plane(geometry);
       }
 
       buffer.material_type.push(material.type);
       buffer.material_index.push(material.index);
     }
   },
+  _process_geometry_sphere: function(geometry) {
 
-  _process_lighting: function(lighting_collection) {
+    var buffer = this._geometry.sphere;
+    var shape = geometry.shape;
+
+    buffer.position.push(
+
+      new THREE.Vector3(
+
+        shape.position.x,
+        shape.position.y,
+        shape.position.z
+      )
+    );
+
+    buffer.radius.push(shape.radius);
+  },
+  _process_geometry_plane: function(geometry) {
+
+    var buffer = this._geometry.plane;
+    var shape = geometry.shape;
+
+    buffer.position.push(
+
+      new THREE.Vector3(
+
+        shape.position.x,
+        shape.position.y,
+        shape.position.z
+      )
+    );
+
+    buffer.normal.push(
+
+      new THREE.Vector3(
+
+        shape.normal.x,
+        shape.normal.y,
+        shape.normal.z
+      ).normalize()
+    );
+  },
+
+  _process_lighting: function(lights) {
 
     var light;
     var buffer;
 
-    for (var i = 0; i < lighting_collection.length; ++i) {
+    for (var i = 0; i < lights.length; ++i) {
 
-      light = lighting_collection[i];
+      light = lights[i];
 
       if (light.type === Light.Sphere) {
 
         buffer = this._lighting.sphere;
-
-        buffer.position.push(
-
-          new THREE.Vector3(
-
-            light.position.x,
-            light.position.y,
-            light.position.z
-          )
-        );
-
-        buffer.radius.push(light.radius);
+        this._process_lighting_sphere(light);
       }
 
       buffer.color.push(
 
         new THREE.Vector3(light.color.r, light.color.g, light.color.b)
       );
-
       buffer.intensity.push(light.intensity);
     }
+  },
+  _process_lighting_sphere: function(light) {
+
+    var buffer = this._lighting.sphere;
+
+    buffer.position.push(
+
+      new THREE.Vector3(
+
+        light.position.x,
+        light.position.y,
+        light.position.z
+      )
+    );
+
+    buffer.radius.push(light.radius);
   },
 
   _process_shader_source: function() {
@@ -228,16 +255,20 @@ Renderer.prototype = {
     this._fragment_shader =
 
       FRAGMENT_SHADER_SOURCE
-        .replace(/N_RANDOM_SEEDS_/g, Renderer.N_RANDOM_SEEDS)
+
+        .replace(/N_RANDOM_SEEDS_/g, Tracer.N_RANDOM_SEEDS)
+
         .replace(/N_MATERIAL_LAMBERT_/g, this._materials.lambert.color.length.toString())
+        .replace(/N_MATERIAL_MIRROR_/g, this._materials.mirror.gloss.length.toString())
+
         .replace(/N_GEOMETRY_SPHERE_/g, this._geometry.sphere.position.length.toString())
         .replace(/N_GEOMETRY_PLANE_/g, this._geometry.plane.position.length.toString())
+
         .replace(/N_LIGHTING_SPHERE_/g, this._lighting.sphere.position.length.toString());
   },
-
   _setup_shader_material: function() {
 
-    this._uniforms = {
+    this._shader_uniforms = {
 
       // globals: //
 
@@ -269,6 +300,11 @@ Renderer.prototype = {
         type: "t",
         value: TextureUtils.from_vec3_array(this._materials.lambert.color)
       },
+      material_mirror_gloss: {
+
+        type: "t",
+        value: TextureUtils.from_float_array(this._materials.mirror.gloss)
+      },
 
       geometry_sphere_position: {type: "v3v", value: this._geometry.sphere.position},
       geometry_sphere_radius: {type: "fv1", value: this._geometry.sphere.radius},
@@ -285,19 +321,16 @@ Renderer.prototype = {
         type: "t",
         value: TextureUtils.from_vec3_array(this._lighting.sphere.position)
       },
-
       lighting_sphere_radius: {
 
         type: "t",
         value: TextureUtils.from_float_array(this._lighting.sphere.radius)
       },
-
       lighting_sphere_color: {
 
         type: "t",
         value: TextureUtils.from_vec3_array(this._lighting.sphere.color)
       },
-
       lighting_sphere_intensity: {
 
         type: "t",
@@ -305,34 +338,30 @@ Renderer.prototype = {
       }
     };
 
-    this._3_material = new THREE.RawShaderMaterial({
+    this._shader_material = new THREE.RawShaderMaterial({
 
-      uniforms: this._uniforms,
+      uniforms: this._shader_uniforms,
 
       vertexShader: this._vertex_shader,
       fragmentShader: this._fragment_shader,
 
       side: THREE.DoubleSide
     });
-
-    this._3_scene.remove(this._3_mesh);
-    this._3_mesh = new THREE.Mesh(this._3_geometry, this._3_material);
-    this._3_scene.add(this._3_mesh);
   },
 
   _generate_random_seeds: function() {
 
-    for (var i = 0; i < Renderer.N_RANDOM_SEEDS; ++i) {
+    for (var i = 0; i < Tracer.N_RANDOM_SEEDS; ++i) {
 
       this._random_seeds[i] = Math.random();
     }
 
-    this._uniforms.random_seeds.value = TextureUtils.from_float_array(this._random_seeds);
+    this._shader_uniforms.random_seeds.value = TextureUtils.from_float_array(this._random_seeds);
   },
 
   update: function() {
 
-    this._reset();
+    this._clear_buffers();
 
     this._camera.updateMatrix();
     this._camera.updateMatrixWorld();
@@ -343,13 +372,15 @@ Renderer.prototype = {
 
     this._process_shader_source();
     this._setup_shader_material();
+
+    this._screen.shader_material = this._shader_material;
   },
 
-  render: function(target) {
+  render: function(renderer, target) {
 
     this._generate_random_seeds();
 
-    this._3_renderer.render(this._3_scene, this._camera, target);
+    renderer.render(this._screen.scene, this._camera, target);
   },
 
   get scene() { return this._scene; },
@@ -364,9 +395,5 @@ Renderer.prototype = {
   },
 
   get camera() { return this._camera; },
-  set camera(camera) { this._camera = camera; },
-
-  get canvas() { return this._canvas; },
-
-  get renderer() { return this._3_renderer; }
+  set camera(camera) { this._camera = camera; }
 };
