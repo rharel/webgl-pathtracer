@@ -1,5 +1,5 @@
 ## What is this?
-A simple pathtracer implementation that runs entirely on the GPU. View the live demo here (your browser needs to support WebGL and the OES_texture_float extension).
+A simple pathtracer implementation that runs entirely on the GPU. View the [live demo here](http://rharel.github.io/webgl-pathtracer/) (your browser needs to support WebGL and the OES_texture_float extension).
 
 Features:
  * Materials
@@ -151,7 +151,7 @@ tracer.render(renderer, composer.target);
 composer.process(renderer);
 ```
 
-As you probably have noticed, the call to `render()` now takes an additional paramter - a render target. This causes the result of the tracing to be stored in a buffer inside our composer. The composer then adds this buffer to all previously recorded tracings and averages the result through a call to `process()`. The end-product is a nice smooth image. 
+As you probably have noticed, the call to `render()` now takes an additional paramter - a render target. This causes the result of the tracing to be stored in a buffer inside our composer. The composer then adds this buffer to all previously recorded tracings and averages the result through a call to `process()`. The end-product is a [nice smooth image](http://rharel.github.io/webgl-pathtracer/).
 
 ## License
 
