@@ -138,7 +138,7 @@ That's it! All we had to do now is create a threejs Renderer pointing to our des
 
 ### Composing an image
 
-With path-tracer, a single render call produces a noisy image since there is a deal of randomness involved in the rays' path. To achieve a smooth image such as that in the demo, we will need to average many render calls together. We support this with a Composer class:
+With path-tracers, a single render call produces a noisy image since there is a deal of randomness involved in the rays' path. To achieve a smooth image such as that in the demo, we will need to average many render calls together. We support this with a Composer class:
 
 ```javascript
 var composer = new GLPT.Composer({resolution: {x: <width>, y: <height>}});
