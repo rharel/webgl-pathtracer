@@ -1,9 +1,19 @@
 # Editor
 .idea/
 
-# Package managers
-bower_components/
+# NPM
 node_modules/
 
 # Temp files
 src/shaders/*.js
+
+# dont ignore vendor libs
+
+bower_components/*
+
+# three.js
+
+!bower_components/three.js/
+
+bower_components/three.js/*
+!bower_components/three.js/build/
