@@ -11,6 +11,13 @@ src/shaders/*.js
 
 bower_components/*
 
+# webgl-pathtracer
+
+!bower_components/webgl-pathtracer/
+
+bower_components/webgl-pathtracer/*
+!bower_components/webgl-pathtracer/dist/
+
 # three.js
 
 !bower_components/three.js/
