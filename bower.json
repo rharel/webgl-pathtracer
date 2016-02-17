@@ -19,7 +19,10 @@
   "ignore": [
     "**/.*",
     "bower_components",
-    "test"
+    "node_modules",
+    "test",
+    "src",
+    "examples"
   ],
   "dependencies": {
     "three.js": "threejs#*"
