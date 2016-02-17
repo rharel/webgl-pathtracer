@@ -5,6 +5,7 @@ var wrap = require('gulp-wrap');
 var jshint = require('gulp-jshint');
 var rename = require('gulp-rename');
 var shell = require('gulp-shell');
+var uglify = require('gulp-uglify');
 
 var del = require('del');
 var map = require('vinyl-map');
@@ -12,6 +13,7 @@ var map = require('vinyl-map');
 var glslify = require('glslify');
 
 var target = 'glpt.js';
+var target_minified = 'glpt.min.js';
 
 
 gulp.task('jshint:src', function() {
@@ -160,8 +162,16 @@ gulp.task('wrap:dist', ['concat:dist'], function() {
     .pipe(gulp.dest('dist'));
 });
 
+gulp.task('compress', ['wrap:dist'], function() {
+
+  return gulp.src('dist/' + target)
+
+    .pipe(uglify())
+    .pipe(rename(function(path) { path.extname = '.min.js'; }))
+    .pipe(gulp.dest('dist'));
+});
 
 gulp.task('build', ['wrap:dist']);
-
+gulp.task('release', ['build', 'compress']);
 
 gulp.task('default', ['build', 'jshint:dist']);
