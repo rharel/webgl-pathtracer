@@ -1,0 +1,266 @@
+<!DOCTYPE html>
+<!--
+/**
+ * @author Raoul Harel
+ * @license The MIT license (LICENSE.txt)
+ * @copyright 2015 Raoul Harel
+ * @url https://github.com/rharel/webgl-pathtracer
+ */
+-->
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Cornell Box Example [webgl-pathtracer]</title>
+
+    <script src="https://code.jquery.com/jquery-2.1.4.min.js"></script>
+    <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.5/css/bootstrap.min.css">
+    <script src="bower_components/three.js/build/three.js"></script>
+
+    <link rel="stylesheet" href="css/demo.css">
+
+    <script src="dist/glpt.js"></script>
+
+    <script>
+
+        $(document).ready(function() {
+
+            var WIDTH = 512, HEIGHT = 512;
+
+            var tracer = null;
+            var composer = new GLPT.Composer({resolution: {x: WIDTH, y: HEIGHT}});
+            var renderer = new THREE.WebGLRenderer({
+
+                canvas: document.getElementById('render-target')
+            });
+
+            function init_tracer() {
+
+                var materials = [
+
+                    {
+                        type: GLPT.Material.Lambert,
+                        color: new THREE.Color('red')
+                    },
+
+                    {
+                        type: GLPT.Material.Lambert,
+                        color: new THREE.Color('orange')
+                    },
+
+                    {
+                        type: GLPT.Material.Lambert,
+                        color: new THREE.Color('yellow')
+                    },
+
+                    {
+                        type: GLPT.Material.Lambert,
+                        color: new THREE.Color(0x00ff00)
+                    },
+
+                    {
+                        type: GLPT.Material.Lambert,
+                        color: new THREE.Color('gray')
+                    },
+
+                    {
+                        type: GLPT.Material.Lambert,
+                        color: new THREE.Color('violet')
+                    },
+
+                    {
+                        type: GLPT.Material.Lambert,
+                        color: new THREE.Color(0xffffff)
+                    },
+
+                    {
+                        type: GLPT.Material.Mirror
+                    }
+                ];
+
+                var red = 0,
+                    orange = 1,
+                    yellow = 2,
+                    green = 3,
+                    blue = 4,
+                    violet = 5,
+                    white = 6,
+                    perfect_mirror = 7;
+
+                var geometry = [
+
+                    // left wall
+                    {
+                        shape: {
+
+                            type: GLPT.Primitive.Plane,
+                            position: {x: -1, y: 0, z: 0},
+                            normal: {x: 1, y: 0, z: 0}
+                        },
+
+                        material_index: orange
+                    },
+
+                    // right wall
+                    {
+                        shape: {
+
+                            type: GLPT.Primitive.Plane,
+                            position: {x: 1, y: 0, z: 0},
+                            normal: {x: -1, y: 0, z: 0}
+                        },
+
+                        material_index: violet
+                    },
+
+                    // front wall
+                    {
+                        shape: {
+
+                            type: GLPT.Primitive.Plane,
+                            position: {x: 0, y: 0, z: 1},
+                            normal: {x: 0, y: 0, z: -1}
+                        },
+
+                        material_index: white
+                    },
+
+                    // back wall
+                    {
+                        shape: {
+
+                            type: GLPT.Primitive.Plane,
+                            position: {x: 0, y: 0, z: -1},
+                            normal: {x: 0, y: 0, z: 1}
+                        },
+
+                        material_index: white
+                    },
+
+                    // top wall
+                    {
+                        shape: {
+
+                            type: GLPT.Primitive.Plane,
+                            position: {x: 0, y: 1, z: 0},
+                            normal: {x: 0, y: -1, z: 0}
+                        },
+
+                        material_index: red
+                    },
+
+                    // bottom wall
+                    {
+                        shape: {
+
+                            type: GLPT.Primitive.Plane,
+                            position: {x: 0, y: -1, z: 0},
+                            normal: {x: 0, y: 1, z: 0}
+                        },
+
+                        material_index: white
+                    },
+
+                    // lambertian sphere
+                    {
+                        shape: {
+
+                            type: GLPT.Primitive.Sphere,
+                            position: {x: 0.3, y: -0.5, z: -0.5},
+                            radius: 0.5
+                        },
+
+                        material_index: perfect_mirror
+                    },
+
+                    // mirror sphere
+                    {
+                        shape: {
+
+                            type: GLPT.Primitive.Sphere,
+                            position: {x: -0.5, y: -0.75, z: -0.5},
+                            radius: 0.25
+                        },
+
+                        material_index: green
+                    }
+                ];
+
+                var lighting = [
+
+                    {
+                        type: GLPT.Light.Sphere,
+                        position: {x: 0.0, y: 0.75, z: 0.0},
+                        radius: 0.25,
+                        color: {r: 1, g: 1, b: 1},
+                        intensity: 6
+                    }
+                ];
+
+                var scene = {materials: materials, geometry: geometry, lighting: lighting};
+
+                tracer = new GLPT.Tracer({
+
+                    resolution: {x: WIDTH, y: HEIGHT},
+                    pixel_sampler: {
+
+                        stratifier: GLPT.Stratifier.Grid,
+                        degree: 2
+                    }
+                });
+
+                tracer.scene = scene;
+                tracer.camera.position.set(0, 0, 3);
+                tracer.camera.rotation.set(0, 0, 0);
+                tracer.camera.fov = 75;
+
+                tracer.update();
+                composer.update();
+            }
+
+            var MAX_RENDER_PASS = 100;
+            var $render_pass_counter = $('#render-pass-counter');
+
+            function render() {
+
+                tracer.render(renderer, composer.target);
+                composer.process(renderer);
+
+                $render_pass_counter.text(
+
+                    (composer.nPasses- 1) + ' / ' + MAX_RENDER_PASS
+                );
+
+                if (composer.nPasses <= MAX_RENDER_PASS) {
+
+                    requestAnimationFrame(render);
+                }
+            }
+
+            init_tracer();
+
+            renderer.autoClear = false;
+
+            requestAnimationFrame(render);
+        });
+    </script>
+</head>
+<body>
+
+    <div class="container-fluid container-fill">
+
+        <h2>Pathtracing on the GPU</h2>
+        <div>
+            <a class="btn btn-success btn-lg" href="https://github.com/rharel/webgl-pathtracer">
+
+                View on Github
+            </a>
+        </div>
+        <h3>Render calls: <span id="render-pass-counter"></span></h3>
+
+        <canvas id="render-target" width="512" height="512">
+
+            Your browser does not support HTML5 canvas :(
+        </canvas>
+    </div>
+</body>
+</html>
