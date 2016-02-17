@@ -1,6 +1,6 @@
 {
   "name": "webgl-pathtracer",
-  "version": "0.0.0",
+  "version": "1.0.0",
   "description": "Path tracing on the GPU using WebGL",
   "main": "dist/pathtracer.js",
   "directories": {
